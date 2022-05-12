@@ -1,0 +1,36 @@
+[submodule "Audio"]
+	path = Kube/Audio
+	url = git@github.com:Kube-Framework/Audio.git
+[submodule "Core"]
+	path = Kube/Core
+	url = git@github.com:Kube-Framework/Core.git
+[submodule "ECS"]
+	path = Kube/ECS
+	url = git@github.com:Kube-Framework/ECS.git
+[submodule "Flow"]
+	path = Kube/Flow
+	url = git@github.com:Kube-Framework/Flow.git
+[submodule "External/pcg-cpp"]
+	path = External/pcg-cpp
+	url = https://github.com/imneme/pcg-cpp.git
+[submodule "Kube/GPU"]
+	path = Kube/GPU
+	url = git@github.com:Kube-Framework/GPU.git
+[submodule "External/VulkanMemoryAllocator"]
+	path = External/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "Kube/UI"]
+	path = Kube/UI
+	url = git@github.com:Kube-Framework/UI.git
+[submodule "External/cmrc"]
+	path = External/cmrc
+	url = https://github.com/vector-of-bool/cmrc.git
+[submodule "Kube/IO"]
+	path = Kube/IO
+	url = git@github.com:Kube-Framework/IO.git
+[submodule "External/stb"]
+	path = External/stb
+	url = https://github.com/nothings/stb.git
+[submodule "Kube/DSP"]
+	path = Kube/DSP
+	url = git@github.com:Kube-Framework/DSP.git
