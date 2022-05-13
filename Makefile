@@ -1,12 +1,8 @@
 # Kube's Makefile helper
 # Used to prevent misusage of cmake
 
-# Predefined build directories
-RELEASE_DIR			=	Release
-DEBUG_DIR			=	Debug
-
 # Build type and directory
-BUILD_DIR			=	$(RELEASE_DIR)
+BUILD_DIR			=	Build
 BUILD_TYPE			=	Release
 
 # Coverage output
@@ -18,6 +14,9 @@ COVERAGE_EXTRACT	=
 # Cmake arguments stack
 CMAKE_ARGS			=
 
+# Cmake generator
+CMAKE_GENERATOR		=	"Ninja Multi-Config"
+
 # Commands
 RM					=	rm -rf
 
@@ -26,7 +25,7 @@ all: release
 
 build:
 	cmake -E make_directory $(BUILD_DIR)
-	cmake -B $(BUILD_DIR) -H. -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) ${CMAKE_ARGS} -GNinja
+	cmake -B $(BUILD_DIR) -H. -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) ${CMAKE_ARGS} -G${CMAKE_GENERATOR}
 	cmake --build $(BUILD_DIR)
 
 release:
@@ -112,40 +111,6 @@ audio_benchmarks:
 audio_benchmarks_debug:
 	$(MAKE) benchmarks_debug $(AUDIO_ARGS)
 
-
-# App
-APP_ARGS = CMAKE_ARGS+=-DKF_APP=ON
-app:
-	$(MAKE) release $(APP_ARGS)
-
-app_debug:
-	$(MAKE) debug $(APP_ARGS)
-
-app_tests:
-	$(MAKE) tests $(APP_ARGS)
-
-run_app_tests:
-	$(MAKE) run_tests $(APP_ARGS)
-
-app_tests_debug:
-	$(MAKE) tests_debug $(APP_ARGS)
-
-run_app_tests_debug:
-	$(MAKE) run_tests_debug $(APP_ARGS)
-
-app_coverage:
-	$(MAKE) coverage $(APP_ARGS)
-
-run_app_coverage:
-	$(MAKE) run_coverage_extract $(APP_ARGS) COVERAGE_EXTRACT="App"
-
-app_benchmarks:
-	$(MAKE) benchmarks $(APP_ARGS)
-
-app_benchmarks_debug:
-	$(MAKE) benchmarks_debug $(APP_ARGS)
-
-
 # Core
 CORE_ARGS = CMAKE_ARGS+=-DKF_CORE=ON
 core:
@@ -177,6 +142,39 @@ core_benchmarks:
 
 core_benchmarks_debug:
 	$(MAKE) benchmarks_debug $(CORE_ARGS)
+
+
+# Dsp
+DSP_ARGS = CMAKE_ARGS+=-DKF_DSP=ON
+dsp:
+	$(MAKE) release $(DSP_ARGS)
+
+dsp_debug:
+	$(MAKE) debug $(DSP_ARGS)
+
+dsp_tests:
+	$(MAKE) tests $(DSP_ARGS)
+
+run_dsp_tests:
+	$(MAKE) run_tests $(DSP_ARGS)
+
+dsp_tests_debug:
+	$(MAKE) tests_debug $(DSP_ARGS)
+
+run_dsp_tests_debug:
+	$(MAKE) run_tests_debug $(DSP_ARGS)
+
+dsp_coverage:
+	$(MAKE) coverage $(DSP_ARGS)
+
+run_dsp_coverage:
+	$(MAKE) run_coverage_extract $(DSP_ARGS) COVERAGE_EXTRACT="Dsp"
+
+dsp_benchmarks:
+	$(MAKE) benchmarks $(DSP_ARGS)
+
+dsp_benchmarks_debug:
+	$(MAKE) benchmarks_debug $(DSP_ARGS)
 
 
 # ECS
@@ -212,136 +210,38 @@ ecs_benchmarks_debug:
 	$(MAKE) benchmarks_debug $(ECS_ARGS)
 
 
-# Graphics
-GRAPHICS_ARGS = CMAKE_ARGS+=-DKF_GRAPHICS=ON
-graphics:
-	$(MAKE) release $(GRAPHICS_ARGS)
+# Gpu
+GPU_ARGS = CMAKE_ARGS+=-DKF_GPU=ON
+gpu:
+	$(MAKE) release $(GPU_ARGS)
 
-graphics_debug:
-	$(MAKE) debug $(GRAPHICS_ARGS)
+gpu_debug:
+	$(MAKE) debug $(GPU_ARGS)
 
-graphics_tests:
-	$(MAKE) tests $(GRAPHICS_ARGS)
+gpu_tests:
+	$(MAKE) tests $(GPU_ARGS)
 
-run_graphics_tests:
-	$(MAKE) run_tests $(GRAPHICS_ARGS)
+run_gpu_tests:
+	$(MAKE) run_tests $(GPU_ARGS)
 
-graphics_tests_debug:
-	$(MAKE) tests_debug $(GRAPHICS_ARGS)
+gpu_tests_debug:
+	$(MAKE) tests_debug $(GPU_ARGS)
 
-run_graphics_tests_debug:
-	$(MAKE) run_tests_debug $(GRAPHICS_ARGS)
+run_gpu_tests_debug:
+	$(MAKE) run_tests_debug $(GPU_ARGS)
 
-graphics_coverage:
-	$(MAKE) coverage $(GRAPHICS_ARGS)
+gpu_coverage:
+	$(MAKE) coverage $(GPU_ARGS)
 
-run_graphics_coverage:
-	$(MAKE) run_coverage_extract $(GRAPHICS_ARGS) COVERAGE_EXTRACT="Graphics"
+run_gpu_coverage:
+	$(MAKE) run_coverage_extract $(GPU_ARGS) COVERAGE_EXTRACT="Gpu"
 
-graphics_benchmarks:
-	$(MAKE) benchmarks $(GRAPHICS_ARGS)
+gpu_benchmarks:
+	$(MAKE) benchmarks $(GPU_ARGS)
 
-graphics_benchmarks_debug:
-	$(MAKE) benchmarks_debug $(GRAPHICS_ARGS)
+gpu_benchmarks_debug:
+	$(MAKE) benchmarks_debug $(GPU_ARGS)
 
-
-# Interpreter
-INTERPRETER_ARGS = CMAKE_ARGS+=-DKF_INTERPRETER=ON
-interpreter:
-	$(MAKE) release $(INTERPRETER_ARGS)
-
-interpreter_debug:
-	$(MAKE) debug $(INTERPRETER_ARGS)
-
-interpreter_tests:
-	$(MAKE) tests $(INTERPRETER_ARGS)
-
-run_interpreter_tests:
-	$(MAKE) run_tests $(INTERPRETER_ARGS)
-
-interpreter_tests_debug:
-	$(MAKE) tests_debug $(INTERPRETER_ARGS)
-
-run_interpreter_tests_debug:
-	$(MAKE) run_tests_debug $(INTERPRETER_ARGS)
-
-interpreter_coverage:
-	$(MAKE) coverage $(INTERPRETER_ARGS)
-
-run_interpreter_coverage:
-	$(MAKE) run_coverage_extract $(INTERPRETER_ARGS) COVERAGE_EXTRACT="Interpreter"
-
-interpreter_benchmarks:
-	$(MAKE) benchmarks $(INTERPRETER_ARGS)
-
-interpreter_benchmarks_debug:
-	$(MAKE) benchmarks_debug $(INTERPRETER_ARGS)
-
-
-# Meta
-META_ARGS = CMAKE_ARGS+=-DKF_META=ON
-meta:
-	$(MAKE) release $(META_ARGS)
-
-meta_debug:
-	$(MAKE) debug $(META_ARGS)
-
-meta_tests:
-	$(MAKE) tests $(META_ARGS)
-
-run_meta_tests:
-	$(MAKE) run_tests $(META_ARGS)
-
-meta_tests_debug:
-	$(MAKE) tests_debug $(META_ARGS)
-
-run_meta_tests_debug:
-	$(MAKE) run_tests_debug $(META_ARGS)
-
-meta_coverage:
-	$(MAKE) coverage $(META_ARGS)
-
-run_meta_coverage:
-	$(MAKE) run_coverage_extract $(META_ARGS) COVERAGE_EXTRACT="Meta"
-
-meta_benchmarks:
-	$(MAKE) benchmarks $(META_ARGS)
-
-meta_benchmarks_debug:
-	$(MAKE) benchmarks_debug $(META_ARGS)
-
-
-# Object
-OBJECT_ARGS = CMAKE_ARGS+=-DKF_OBJECT=ON
-object:
-	$(MAKE) release $(OBJECT_ARGS)
-
-object_debug:
-	$(MAKE) debug $(OBJECT_ARGS)
-
-object_tests:
-	$(MAKE) tests $(OBJECT_ARGS)
-
-run_object_tests:
-	$(MAKE) run_tests $(OBJECT_ARGS)
-
-object_tests_debug:
-	$(MAKE) tests_debug $(OBJECT_ARGS)
-
-run_object_tests_debug:
-	$(MAKE) run_tests_debug $(OBJECT_ARGS)
-
-object_coverage:
-	$(MAKE) coverage $(OBJECT_ARGS)
-
-run_object_coverage:
-	$(MAKE) run_coverage_extract $(OBJECT_ARGS) COVERAGE_EXTRACT="Object"
-
-object_benchmarks:
-	$(MAKE) benchmarks $(OBJECT_ARGS)
-
-object_benchmarks_debug:
-	$(MAKE) benchmarks_debug $(OBJECT_ARGS)
 
 # UI
 UI_ARGS = CMAKE_ARGS+=-DKF_UI=ON
@@ -408,71 +308,6 @@ flow_benchmarks:
 flow_benchmarks_debug:
 	$(MAKE) benchmarks_debug $(FLOW_ARGS)
 
-# Voxel
-VOXEL_ARGS = CMAKE_ARGS+=-DKF_VOXEL=ON
-voxel:
-	$(MAKE) release $(VOXEL_ARGS)
-
-voxel_debug:
-	$(MAKE) debug $(VOXEL_ARGS)
-
-voxel_tests:
-	$(MAKE) tests $(VOXEL_ARGS)
-
-run_voxel_tests:
-	$(MAKE) run_tests $(VOXEL_ARGS)
-
-voxel_tests_debug:
-	$(MAKE) tests_debug $(VOXEL_ARGS)
-
-run_voxel_tests_debug:
-	$(MAKE) run_tests_debug $(VOXEL_ARGS)
-
-voxel_coverage:
-	$(MAKE) coverage $(VOXEL_ARGS)
-
-run_voxel_coverage:
-	$(MAKE) run_coverage_extract $(VOXEL_ARGS) COVERAGE_EXTRACT="Voxel"
-
-voxel_benchmarks:
-	$(MAKE) benchmarks $(VOXEL_ARGS)
-
-voxel_benchmarks_debug:
-	$(MAKE) benchmarks_debug $(VOXEL_ARGS)
-
-
-# Widgets
-WIDGETS_ARGS = CMAKE_ARGS+=-DKF_WIDGETS=ON
-widgets:
-	$(MAKE) release $(WIDGETS_ARGS)
-
-widgets_debug:
-	$(MAKE) debug $(WIDGETS_ARGS)
-
-widgets_tests:
-	$(MAKE) tests $(WIDGETS_ARGS)
-
-run_widgets_tests:
-	$(MAKE) run_tests $(WIDGETS_ARGS)
-
-widgets_tests_debug:
-	$(MAKE) tests_debug $(WIDGETS_ARGS)
-
-run_widgets_tests_debug:
-	$(MAKE) run_tests_debug $(WIDGETS_ARGS)
-
-widgets_coverage:
-	$(MAKE) coverage $(WIDGETS_ARGS)
-
-run_widgets_coverage:
-	$(MAKE) run_coverage_extract $(WIDGETS_ARGS) COVERAGE_EXTRACT="Widgets"
-
-widgets_benchmarks:
-	$(MAKE) benchmarks $(WIDGETS_ARGS)
-
-widgets_benchmarks_debug:
-	$(MAKE) benchmarks_debug $(WIDGETS_ARGS)
-
 # Cleaning rules
 clean:
 	$(RM) ${RELEASE_DIR}
@@ -491,7 +326,8 @@ re: clean all
 	audio audio_debug audio_tests run_audio_tests audio_tests_debug run_audio_tests_debug audio_coverage run_audio_coverage audio_benchmarks audio_benchmarks_debug \
 	app app_debug app_tests run_app_tests app_tests_debug run_app_tests_debug app_coverage run_app_coverage app_benchmarks app_benchmarks_debug \
 	core core_debug core_tests run_core_tests core_tests_debug run_core_tests_debug core_coverage run_core_coverage core_benchmarks core_benchmarks_debug \
-	graphics graphics_debug graphics_tests run_graphics_tests graphics_tests_debug run_graphics_tests_debug graphics_coverage run_graphics_coverage graphics_benchmarks graphics_benchmarks_debug \
+	dsp dsp_debug dsp_tests run_dsp_tests dsp_tests_debug run_dsp_tests_debug dsp_coverage run_dsp_coverage dsp_benchmarks dsp_benchmarks_debug \
+	gpu gpu_debug gpu_tests run_gpu_tests gpu_tests_debug run_gpu_tests_debug gpu_coverage run_gpu_coverage gpu_benchmarks gpu_benchmarks_debug \
 	interpreter interpreter_debug interpreter_tests run_interpreter_tests interpreter_tests_debug run_interpreter_tests_debug interpreter_coverage run_interpreter_coverage interpreter_benchmarks interpreter_benchmarks_debug \
 	meta meta_debug meta_tests run_meta_tests meta_tests_debug run_meta_tests_debug meta_coverage run_meta_coverage meta_benchmarks meta_benchmarks_debug \
 	ui ui_debug ui_tests run_ui_tests ui_tests_debug run_ui_tests_debug ui_coverage run_ui_coverage ui_benchmarks ui_benchmarks_debug \

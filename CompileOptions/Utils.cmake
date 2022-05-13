@@ -1,5 +1,3 @@
-include(GNUInstallDirs)
-
 # Compile every shaders and link them to target
 # This function is private to this file
 function(_utils_target_compile_shaders_impl TargetName)
@@ -49,64 +47,36 @@ function(_utils_target_compile_resources_impl TargetName)
     endif()
 endfunction()
 
-function(_utils_target_install TargetName)
-    # If install is not required, skip
-    if (NOT ${TMP_TARGET_INSTALL})
-        return()
-    endif()
-
-    # Filter all header files
-    set(TARGET_PUBLIC_HEADERS ${TMP_TARGET_SOURCES})
-    list(FILTER TARGET_PUBLIC_HEADERS INCLUDE REGEX ".\.[hit]pp")
-
-    # Set target public headers
-    set_target_properties(${TargetName} PROPERTIES PUBLIC_HEADER "${TARGET_PUBLIC_HEADERS}")
-
-    # Set install prefix & export name
-    if(TMP_TARGET_INSTALL_NAME)
-        set(TARGET_EXPORT_NAME ${TMP_TARGET_INSTALL_NAME})
-        set(TARGET_INSTALL_HEADER_DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${TMP_TARGET_INSTALL_NAME}/${TargetName})
-    else()
-        set(TARGET_EXPORT_NAME ${TargetName})
-        set(TARGET_INSTALL_HEADER_DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${TargetName})
-    endif()
-
-    # Install
-    install(
-        TARGETS         ${TargetName}
-        EXPORT          ${TARGET_EXPORT_NAME}
-        LIBRARY         DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE         DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME         DESTINATION ${CMAKE_INSTALL_BINDIR}
-        INCLUDES        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        PUBLIC_HEADER   DESTINATION ${TARGET_INSTALL_HEADER_DESTINATION}
-    )
-endfunction()
-
 # Create a library
 # Usage:
-# Tag           Args                Description
+# Tag               Args                Description
 # ----------------------------------------------------
-# OUTPUT        name                Output name
-# SOURCES       path0 path1 ...     Sources files
-# INCLUDES      dir0 dir1 ...       Include directories
-# LIBRARIES     lib0 lib1 ...       Dependent libraries
-# RESOURCES     path0 path1 ...     Resource files embedded to the target
-# SHADERS       path0 path1 ...     Resource files embedded to the target
-# TESTS         ON|OFF              Enable unit testing ('Tests' directory)
-# BENCHMARKS    ON|OFF              Enable benchmarking ('Benchmarks' directory)
-# INSTALL       ON|OFF              Enable installation
-# INSTALL_NAME  relativePath        Set intermediate install directory for headers
+# OUTPUT            name                Output name
+# LIBTYPE           STATIC|SHARED|...   Type of library
+# SOURCES           path0 path1 ...     Sources files
+# INCLUDES          dir0 dir1 ...       Include directories
+# LIBRARIES         lib0 lib1 ...       Dependent libraries
+# RESOURCES         path0 path1 ...     Resource files embedded to the target
+# SHADERS           path0 path1 ...     Resource files embedded to the target
+# TESTS             ON|OFF              Enable unit testing ('Tests' directory)
+# BENCHMARKS        ON|OFF              Enable benchmarking ('Benchmarks' directory)
 function(utils_add_library LibraryName)
     set(options)
-    set(oneValueArgs OUTPUT TESTS BENCHMARKS INSTALL INSTALL_NAME)
+    set(oneValueArgs OUTPUT TESTS BENCHMARKS LIBTYPE)
     set(multipleValueArgs SOURCES INCLUDES LIBRARIES RESOURCES SHADERS)
     cmake_parse_arguments(TMP_TARGET "${options}" "${oneValueArgs}" "${multipleValueArgs}" ${ARGN})
 
+    # Set visibility
+    if(TMP_TARGET_LIBTYPE STREQUAL "INTERFACE")
+        set(TARGET_VISIBLITY INTERFACE)
+    else()
+        set(TARGET_VISIBLITY PUBLIC)
+    endif()
+
     # Build library target
-    add_library(${LibraryName} ${TMP_TARGET_SOURCES})
-    target_include_directories(${LibraryName} PUBLIC ${TMP_TARGET_INCLUDES})
-    target_link_libraries(${LibraryName} PUBLIC ${TMP_TARGET_LIBRARIES})
+    add_library(${LibraryName} ${TMP_TARGET_LIBTYPE} ${TMP_TARGET_SOURCES})
+    target_include_directories(${LibraryName} ${TARGET_VISIBLITY} ${TMP_TARGET_INCLUDES})
+    target_link_libraries(${LibraryName} ${TARGET_VISIBLITY} ${TMP_TARGET_LIBRARIES})
 
     # Set output name
     if (NOT ("${TMP_TARGET_OUTPUT}" STREQUAL ""))
@@ -122,9 +92,6 @@ function(utils_add_library LibraryName)
     if(${TMP_TARGET_BENCHMARKS})
         add_subdirectory(Benchmarks)
     endif()
-
-    # Install
-    _utils_target_install(${LibraryName})
 
     # Create a resource library with all resources & shaders
     _utils_target_compile_resources_impl(${LibraryName})

@@ -18,9 +18,6 @@ option(KF_EXAMPLES "Build examples" OFF)
 # Enable unit testing
 option(KF_TESTS "Build tests" OFF)
 
-# Enable installation
-option(KF_INSTALL "Generate install configuration" ON)
-
 # Enable coverage over unit tests
 option(KF_COVERAGE "Enable coverage" OFF)
 
@@ -37,7 +34,8 @@ include(CompileOptions/Utils.cmake)
 
 # Library helper
 function(kube_add_library LibraryName)
-    utils_add_library(${LibraryName} TESTS ${KF_TESTS} BENCHMARKS ${KF_BENCHMARKS} ${ARGN} INCLUDES ${PROJECT_SOURCE_DIR} INSTALL ${KF_INSTALL} INSTALL_NAME Kube)
+    utils_add_library(${LibraryName} TESTS ${KF_TESTS} BENCHMARKS ${KF_BENCHMARKS} ${ARGN} INCLUDES ${PROJECT_SOURCE_DIR})
+    add_library(Kube::${LibraryName} ALIAS ${LibraryName})
 endfunction()
 
 # Executable helper
@@ -65,9 +63,4 @@ add_subdirectory(Kube)
 # Build examples
 if(${KF_EXAMPLES})
     add_subdirectory(Examples)
-endif()
-
-# Install
-if(${KF_INSTALL})
-    include(Install.cmake)
 endif()

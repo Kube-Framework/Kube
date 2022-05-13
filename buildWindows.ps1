@@ -9,16 +9,11 @@ function Show-Help {
     core:           Mark 'Core' module for manual build
     io:             Mark 'IO' module for manual build
     audio:          Mark 'Audio' module for manual build
-    GPU:            Mark 'GPU' module for manual build
-    meta:           Mark 'Meta' module for manual build
+    gpu:            Mark 'GPU' module for manual build
     flow:           Mark 'Flow' module for manual build
     ecs:            Mark 'ECS' module for manual build
-    object:         Mark 'Object' module for manual build
-    interpreter:    Mark 'Interpreter' module for manual build
-    voxel:          Mark 'Voxel' module for manual build
+    dsp:            Mark 'DSP' module for manual build
     ui:             Mark 'UI' module for manual build
-    widgets:        Mark 'Widgets' module for manual build
-    app:            Mark 'App' module for manual build
     "
     Exit
 }
@@ -28,7 +23,6 @@ function Clean-Build {
         Remove-Item $buildDir -Recurse -Force
     }
     Exit
-
 }
 
 $buildType = "Release"
@@ -36,7 +30,7 @@ $buildTests = $false
 $buildBenchmarks = $false
 $cmakeArgs = ""
 $buildDir = "Build"
-$generator = "Ninja"
+$generator = "Ninja Multi-Config"
 
 switch ($args) {
     'release'       { $buildType = "Release" }
@@ -49,16 +43,11 @@ switch ($args) {
     "core"          { $cmakeArgs += " -DKF_CORE=ON" }
     "io"            { $cmakeArgs += " -DKF_IO=ON" }
     "audio"         { $cmakeArgs += " -DKF_AUDIO=ON" }
-    "GPU"           { $cmakeArgs += " -DKF_GPU=ON" }
-    "meta"          { $cmakeArgs += " -DKF_META=ON" }
+    "gpu"           { $cmakeArgs += " -DKF_GPU=ON" }
     "flow"          { $cmakeArgs += " -DKF_FLOW=ON" }
+    "dsp"           { $cmakeArgs += " -DKF_DSP=ON" }
     "ecs"           { $cmakeArgs += " -DKF_ECS=ON" }
-    "object"        { $cmakeArgs += " -DKF_OBJECT=ON" }
-    "interpreter"   { $cmakeArgs += " -DKF_INTERPRETER=ON" }
-    "voxel"         { $cmakeArgs += " -DKF_VOXEL=ON" }
     "ui"            { $cmakeArgs += " -DKF_UI=ON" }
-    "widgets"       { $cmakeArgs += " -DKF_WIDGETS=ON" }
-    "app"           { $cmakeArgs += " -DKF_APP=ON" }
     default         {
         Write-Host "Invalid argument, please use --help for usage"
         Exit
@@ -88,7 +77,7 @@ if (-not (Test-Path $buildDir -PathType Container)) {
     }
 }
 
-$cmakeCommand = "cmake -G$generator -B $buildDir $cmakeArgs ."
+$cmakeCommand = "cmake -G""$generator"" -B $buildDir $cmakeArgs ."
 Write-Host "$messagePrefix Executing CMake: $cmakeCommand"
 Invoke-Expression $cmakeCommand
 if ($LASTEXITCODE -eq 0) {

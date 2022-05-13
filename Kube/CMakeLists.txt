@@ -70,38 +70,21 @@ kube_setup_module(KF_CORE Core)
 kube_setup_module(KF_IO             IO          KF_CORE)
 kube_setup_module(KF_AUDIO          Audio       KF_CORE)
 kube_setup_module(KF_GPU            GPU         KF_CORE)
-kube_setup_module(KF_META           Meta        KF_CORE)
 kube_setup_module(KF_FLOW           Flow        KF_CORE)
 
 # Level 2: Higher level objects and concepts
+kube_setup_module(KF_DSP            DSP         KF_AUDIO)
 kube_setup_module(KF_ECS            ECS         KF_FLOW)
-kube_setup_module(KF_OBJECT         Object      KF_META)
 
 # Level 3: Implementation of general utiliies using L2 concepts
-kube_setup_module(KF_INTERPRETER    Interpreter KF_OBJECT KF_FLOW)
-kube_setup_module(KF_VOXEL          Voxel       KF_GPU KF_ECS)
 kube_setup_module(KF_UI             UI          KF_GPU KF_ECS KF_IO)
-
-# Level 4: Implementation of specific utilities using L3 concepts
-kube_setup_module(KF_WIDGETS        Widgets     KF_OBJECT KF_UI)
-
-# Level 5: Application level
-kube_setup_module(KF_APP            App         KF_WIDGETS KF_INTERPRETER)
-
-# Level 6: Specialized applications
-# kube_setup_module(KF_APP VoxelApp               KF_APP KF_VOXEL)
 
 # Include each module and check if they should be compiled (will recurse on dependencies)
 kube_include_module(KF_CORE)
 kube_include_module(KF_IO)
 kube_include_module(KF_AUDIO)
 kube_include_module(KF_GPU)
-kube_include_module(KF_META)
 kube_include_module(KF_FLOW)
+kube_include_module(KF_DSP)
 kube_include_module(KF_ECS)
-kube_include_module(KF_OBJECT)
-kube_include_module(KF_INTERPRETER)
 kube_include_module(KF_UI)
-kube_include_module(KF_VOXEL)
-kube_include_module(KF_WIDGETS)
-kube_include_module(KF_APP)
