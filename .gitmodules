@@ -31,3 +31,6 @@
 [submodule "Kube/DSP"]
 	path = Kube/DSP
 	url = git@github.com:Kube-Framework/DSP.git
+[submodule "External/cmrc"]
+	path = External/cmrc
+	url = git@github.com:Kube-Framework/cmrc.git
