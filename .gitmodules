@@ -22,9 +22,6 @@
 [submodule "Kube/UI"]
 	path = Kube/UI
 	url = git@github.com:Kube-Framework/UI.git
-[submodule "External/cmrc"]
-	path = External/cmrc
-	url = https://github.com/vector-of-bool/cmrc.git
 [submodule "Kube/IO"]
 	path = Kube/IO
 	url = git@github.com:Kube-Framework/IO.git
