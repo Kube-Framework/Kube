@@ -49,6 +49,7 @@ endfunction()
 # Find Google Tests if required
 if(${KF_TESTS})
     find_package(GTest REQUIRED)
+    include(CTest)
     enable_testing()
     message("* KF_TESTS is manually specified to " ${KF_TESTS})
 else()

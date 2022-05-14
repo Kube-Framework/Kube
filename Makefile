@@ -17,6 +17,9 @@ CMAKE_ARGS			=
 # Cmake generator
 CMAKE_GENERATOR		=	"Ninja Multi-Config"
 
+# CTest directory
+CTEST_DIR			=	Kube
+
 # Commands
 RM					=	rm -rf
 
@@ -25,14 +28,14 @@ all: release
 
 build:
 	cmake -E make_directory $(BUILD_DIR)
-	cmake -B $(BUILD_DIR) -H. -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) ${CMAKE_ARGS} -G${CMAKE_GENERATOR}
-	cmake --build $(BUILD_DIR)
+	cmake -B $(BUILD_DIR) -H. ${CMAKE_ARGS} -G${CMAKE_GENERATOR}
+	cmake --build $(BUILD_DIR) --config $(BUILD_TYPE)
 
 release:
-	$(MAKE) build BUILD_DIR=$(RELEASE_DIR) BUILD_TYPE=Release
+	$(MAKE) build BUILD_TYPE=Release
 
 debug:
-	$(MAKE) build BUILD_DIR=$(DEBUG_DIR) BUILD_TYPE=Debug
+	$(MAKE) build BUILD_TYPE=Debug
 
 # General tests rules
 tests:
@@ -42,23 +45,23 @@ tests_debug:
 	$(MAKE) debug CMAKE_ARGS+=-DKF_TESTS=ON
 
 run_tests: tests
-	ninja -C $(RELEASE_DIR) test
+	ctest --test-dir $(BUILD_DIR)/$(CTEST_DIR) -C $(BUILD_TYPE)
 
 run_tests_debug: tests_debug
-	ninja -C $(DEBUG_DIR) test
+	ctest --test-dir $(BUILD_DIR)/$(CTEST_DIR) -C $(BUILD_TYPE)
 
 # General code coverage rules
 coverage:
 	$(MAKE) tests_debug CMAKE_ARGS+="-DKF_COVERAGE=ON"
 
 run_coverage: coverage
-	ninja -C $(DEBUG_DIR) test
+	ctest --test-dir $(BUILD_DIR)/$(CTEST_DIR) -C $(BUILD_TYPE)
 	lcov --directory . --capture --no-external --output-file $(COVERAGE_OUTPUT)
 	lcov --remove $(COVERAGE_OUTPUT) "*/Tests/*" -o $(COVERAGE_OUTPUT)
 	lcov --list $(COVERAGE_OUTPUT)
 
 run_coverage_extract: coverage
-	./Debug/Kube$(COVERAGE_EXTRACT)Tests
+	./$(BUILD_DIR)/Kube/$(COVERAGE_EXTRACT)/Tests/Debug/$(COVERAGE_EXTRACT)Tests
 	lcov --directory . --capture --no-external --output-file $(COVERAGE_OUTPUT)
 	lcov --remove $(COVERAGE_OUTPUT) "*/Tests/*" -o $(COVERAGE_OUTPUT)
 	lcov --extract $(COVERAGE_OUTPUT) "*/$(COVERAGE_EXTRACT)/*" -o $(COVERAGE_OUTPUT)
@@ -144,7 +147,7 @@ core_benchmarks_debug:
 	$(MAKE) benchmarks_debug $(CORE_ARGS)
 
 
-# Dsp
+# DSP
 DSP_ARGS = CMAKE_ARGS+=-DKF_DSP=ON
 dsp:
 	$(MAKE) release $(DSP_ARGS)
@@ -210,7 +213,7 @@ ecs_benchmarks_debug:
 	$(MAKE) benchmarks_debug $(ECS_ARGS)
 
 
-# Gpu
+# GPU
 GPU_ARGS = CMAKE_ARGS+=-DKF_GPU=ON
 gpu:
 	$(MAKE) release $(GPU_ARGS)
@@ -241,6 +244,39 @@ gpu_benchmarks:
 
 gpu_benchmarks_debug:
 	$(MAKE) benchmarks_debug $(GPU_ARGS)
+
+
+# IO
+IO_ARGS = CMAKE_ARGS+=-DKF_IO=ON
+io:
+	$(MAKE) release $(IO_ARGS)
+
+io_debug:
+	$(MAKE) debug $(IO_ARGS)
+
+io_tests:
+	$(MAKE) tests $(IO_ARGS)
+
+run_io_tests:
+	$(MAKE) run_tests $(IO_ARGS)
+
+io_tests_debug:
+	$(MAKE) tests_debug $(IO_ARGS)
+
+run_io_tests_debug:
+	$(MAKE) run_tests_debug $(IO_ARGS)
+
+io_coverage:
+	$(MAKE) coverage $(IO_ARGS)
+
+run_io_coverage:
+	$(MAKE) run_coverage_extract $(IO_ARGS) COVERAGE_EXTRACT="Io"
+
+io_benchmarks:
+	$(MAKE) benchmarks $(IO_ARGS)
+
+io_benchmarks_debug:
+	$(MAKE) benchmarks_debug $(IO_ARGS)
 
 
 # UI
@@ -310,8 +346,7 @@ flow_benchmarks_debug:
 
 # Cleaning rules
 clean:
-	$(RM) ${RELEASE_DIR}
-	$(RM) ${DEBUG_DIR}
+	$(RM) ${BUILD_DIR}
 
 fclean: clean
 
@@ -324,14 +359,12 @@ re: clean all
 	tests tests_debug run_tests run_tests_debug \
 	benchmarks benchmarks_debug \
 	audio audio_debug audio_tests run_audio_tests audio_tests_debug run_audio_tests_debug audio_coverage run_audio_coverage audio_benchmarks audio_benchmarks_debug \
-	app app_debug app_tests run_app_tests app_tests_debug run_app_tests_debug app_coverage run_app_coverage app_benchmarks app_benchmarks_debug \
 	core core_debug core_tests run_core_tests core_tests_debug run_core_tests_debug core_coverage run_core_coverage core_benchmarks core_benchmarks_debug \
 	dsp dsp_debug dsp_tests run_dsp_tests dsp_tests_debug run_dsp_tests_debug dsp_coverage run_dsp_coverage dsp_benchmarks dsp_benchmarks_debug \
-	gpu gpu_debug gpu_tests run_gpu_tests gpu_tests_debug run_gpu_tests_debug gpu_coverage run_gpu_coverage gpu_benchmarks gpu_benchmarks_debug \
-	interpreter interpreter_debug interpreter_tests run_interpreter_tests interpreter_tests_debug run_interpreter_tests_debug interpreter_coverage run_interpreter_coverage interpreter_benchmarks interpreter_benchmarks_debug \
-	meta meta_debug meta_tests run_meta_tests meta_tests_debug run_meta_tests_debug meta_coverage run_meta_coverage meta_benchmarks meta_benchmarks_debug \
-	ui ui_debug ui_tests run_ui_tests ui_tests_debug run_ui_tests_debug ui_coverage run_ui_coverage ui_benchmarks ui_benchmarks_debug \
+	ecs ecs_debug ecs_tests run_ecs_tests ecs_tests_debug run_ecs_tests_debug ecs_coverage run_ecs_coverage ecs_benchmarks ecs_benchmarks_debug \
 	flow flow_debug flow_tests run_flow_tests flow_tests_debug run_flow_tests_debug flow_coverage run_flow_coverage flow_benchmarks flow_benchmarks_debug \
-	widgets widgets_debug widgets_tests run_widgets_tests widgets_tests_debug run_widgets_tests_debug widgets_coverage run_widgets_coverage widgets_benchmarks widgets_benchmarks_debug \
+	gpu gpu_debug gpu_tests run_gpu_tests gpu_tests_debug run_gpu_tests_debug gpu_coverage run_gpu_coverage gpu_benchmarks gpu_benchmarks_debug \
+	io io_debug io_tests run_io_tests io_tests_debug run_io_tests_debug io_coverage run_io_coverage io_benchmarks io_benchmarks_debug \
+	ui ui_debug ui_tests run_ui_tests ui_tests_debug run_ui_tests_debug ui_coverage run_ui_coverage ui_benchmarks ui_benchmarks_debug \
 	clean fclean \
 	re

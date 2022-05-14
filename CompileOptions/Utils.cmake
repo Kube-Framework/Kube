@@ -85,6 +85,7 @@ function(utils_add_library LibraryName)
 
     # Unit tests
     if(${TMP_TARGET_TESTS})
+        enable_testing()
         add_subdirectory(Tests)
     endif()
 
@@ -132,6 +133,7 @@ function(utils_add_executable ExecutableName)
 
     # Unit tests
     if(${TMP_TARGET_TESTS})
+        enable_testing()
         add_subdirectory(Tests)
     endif()
 

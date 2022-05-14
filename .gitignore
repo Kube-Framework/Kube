@@ -36,6 +36,12 @@ Build
 Release
 Debug
 
+# Tests
+Testing
+
+# Coverage
+coverage.info
+
 # VS code
 .vs
 .vscode
