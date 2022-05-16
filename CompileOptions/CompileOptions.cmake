@@ -23,7 +23,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wold-style-cast
         -Wpointer-arith
         -Wcast-qual
-        -Wno-missing-braces
+        # -Wno-missing-braces
+        -Wno-missing-field-initializers
         -fno-exceptions # No exceptions !
         ${WerrorFlag}
     )
