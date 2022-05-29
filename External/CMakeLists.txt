@@ -30,3 +30,7 @@ find_package(freetype REQUIRED)
 add_library(FreeTypeStatic INTERFACE)
 target_link_libraries(FreeTypeStatic INTERFACE ${FREETYPE_LIBRARIES})
 target_include_directories(FreeTypeStatic INTERFACE ${FREETYPE_INCLUDE_DIRS})
+
+# whereami
+add_library(whereami STATIC whereami/src/whereami.c whereami/src/whereami.h)
+target_include_directories(whereami PUBLIC whereami/src/)

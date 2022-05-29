@@ -34,3 +34,6 @@
 [submodule "External/cmrc"]
 	path = External/cmrc
 	url = git@github.com:Kube-Framework/cmrc.git
+[submodule "External/whereami"]
+	path = External/whereami
+	url = https://github.com/gpakosz/whereami.git
