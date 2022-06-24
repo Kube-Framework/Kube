@@ -25,8 +25,8 @@ add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE stb)
 
 # FreeType
-# find_package(freetype MODULE REQUIRED)
-find_package(freetype REQUIRED)
+find_package(Freetype MODULE REQUIRED)
+# find_package(freetype REQUIRED)
 add_library(FreeTypeStatic INTERFACE)
 target_link_libraries(FreeTypeStatic INTERFACE ${FREETYPE_LIBRARIES})
 target_include_directories(FreeTypeStatic INTERFACE ${FREETYPE_INCLUDE_DIRS})
