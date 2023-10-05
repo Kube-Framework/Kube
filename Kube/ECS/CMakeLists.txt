@@ -1,0 +1,19 @@
+kube_add_library(ECS
+    SOURCES
+        ASystem.cpp
+        ASystem.hpp
+        Base.hpp
+        ComponentTable.hpp
+        ComponentTable.ipp
+        Executor.cpp
+        Executor.hpp
+        Executor.ipp
+        Pipeline.hpp
+        StableComponentTable.hpp
+        StableComponentTable.ipp
+        System.hpp
+        System.ipp
+
+    LIBRARIES
+        Flow
+)

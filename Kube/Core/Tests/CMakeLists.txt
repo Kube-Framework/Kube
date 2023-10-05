@@ -1,0 +1,29 @@
+kube_add_unit_tests(CoreTests
+    SOURCES
+        tests_Allocator.cpp
+        tests_Dispatcher.cpp
+        tests_Expected.cpp
+        tests_FixedString.cpp
+        tests_Functor.cpp
+        tests_HeapArray.cpp
+        tests_Log.cpp
+        tests_MPMCQueue.cpp
+        tests_MPSCQueue.cpp
+        tests_Random.cpp
+        tests_RemovableDispatcher.cpp
+        tests_SortedVector.cpp
+        tests_SparseSet.cpp
+        tests_SharedPtr.cpp
+        tests_StaticAllocator.cpp
+        tests_SPMCQueue.cpp
+        tests_SPSCQueue.cpp
+        tests_String.cpp
+        tests_TaggedPtr.cpp
+        tests_TrivialFunctor.cpp
+        tests_UniquePtr.cpp
+        tests_Unicode.cpp
+        tests_Utils.cpp
+        tests_Vector.cpp
+    LIBRARIES
+        Core
+)

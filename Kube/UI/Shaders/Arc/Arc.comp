@@ -1,0 +1,70 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive : enable
+
+#include "Arc.glsl"
+
+// Arc instance
+struct Instance
+{
+    vec2 center; // Arc center
+    float radius; // Arc radius
+    float thickness; // Arc thickness
+    float aperture; // Arc aperture
+    uint color; // Arc inner color
+    uint borderColor; // Arc border color
+    float borderWidth; // Arc border width
+    float edgeSoftness; // Arc edge softness
+    float rotationAngle; // Arc rotation angle
+};
+
+#include "../PrimitiveCompute.glsl"
+
+layout (local_size_x = 64) in;
+
+void main(void)
+{
+    // Don't compute if invocation index is out of instance range
+    const uint instanceIndex = gl_GlobalInvocationID.x;
+    if (instanceIndex >= computeConstants.instanceCount)
+        return;
+    const Offset offset = offsets.data[instanceIndex];
+    const Instance instance = instances.data[instanceIndex];
+
+    // Compute metrics
+    const float totalRadius = instance.radius + (instance.thickness / 2.0) + instance.edgeSoftness;
+
+    // Set vertices
+    Vertex vertex;
+    vertex.center = instance.center;
+    vertex.radius = instance.radius;
+    vertex.thickness = instance.thickness;
+    vertex.aperture = instance.aperture;
+    vertex.color = instance.color;
+    vertex.borderColor = instance.borderColor;
+    vertex.borderWidth = instance.borderWidth;
+    vertex.edgeSoftness = instance.edgeSoftness;
+    vertex.rotationAngle = instance.rotationAngle;
+    //   TopLeft
+    vertex.pos = toRelative(instance.center - totalRadius);
+    vertices.data[offset.vertexOffset + 0] = vertex;
+    //   TopRight
+    vertex.pos = toRelative(instance.center + vec2(totalRadius, -totalRadius));
+    vertices.data[offset.vertexOffset + 1] = vertex;
+    //   BottomRight
+    vertex.pos = toRelative(instance.center + totalRadius);
+    vertices.data[offset.vertexOffset + 2] = vertex;
+    //   BottomLeft
+    vertex.pos = toRelative(instance.center + vec2(-totalRadius, totalRadius));
+    vertices.data[offset.vertexOffset + 3] = vertex;
+
+    // Set indices
+    //   TopLeft Triangle
+    indices.data[offset.indexOffset + 0] = offset.vertexOffset + 0;
+    indices.data[offset.indexOffset + 1] = offset.vertexOffset + 1;
+    indices.data[offset.indexOffset + 2] = offset.vertexOffset + 2;
+    //   BottomRight Triangle
+    indices.data[offset.indexOffset + 3] = offset.vertexOffset + 2;
+    indices.data[offset.indexOffset + 4] = offset.vertexOffset + 3;
+    indices.data[offset.indexOffset + 5] = offset.vertexOffset + 0;
+}

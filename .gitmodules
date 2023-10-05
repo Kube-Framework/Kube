@@ -1,0 +1,21 @@
+[submodule "External/pcg-cpp"]
+	path = External/pcg-cpp
+	url = https://github.com/imneme/pcg-cpp.git
+[submodule "External/VulkanMemoryAllocator"]
+	path = External/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "External/stb"]
+	path = External/stb
+	url = https://github.com/nothings/stb.git
+[submodule "External/cmrc"]
+	path = External/cmrc
+	url = git@github.com:Kube-Framework/cmrc.git
+[submodule "External/whereami"]
+	path = External/whereami
+	url = git@github.com:Kube-Framework/whereami.git
+[submodule "External/PlatformFolders"]
+	path = External/PlatformFolders
+	url = git@github.com:Kube-Framework/PlatformFolders.git
+[submodule "External/tinyfiledialogs"]
+	path = External/tinyfiledialogs
+	url = git@github.com:Kube-Framework/tinyfiledialogs.git
