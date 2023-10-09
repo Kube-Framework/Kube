@@ -12,6 +12,9 @@ project(Kube VERSION 0.1.0)
 # Enable Werror
 option(KF_WERROR "Enable -Werror flag with GCC / Clang" OFF)
 
+# Disable exception
+option(KF_NOEXCEPT "Disable exception" ON)
+
 # Enable full debuging
 option(KF_FULL_DEBUG "Enable -fno-omit-frame-pointer -fsanitize=address flags with GCC / Clang" ON)
 

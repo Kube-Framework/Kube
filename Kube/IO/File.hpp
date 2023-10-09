@@ -82,7 +82,7 @@ public:
     /** @brief Get file path */
     template<typename StringType = std::string_view>
         requires std::constructible_from<StringType, std::string_view>
-    [[nodiscard]] StringType path(void) const noexcept { return _path; }
+    [[nodiscard]] StringType path(void) const noexcept { return StringType(_path); }
 
     /** @brief Get file name with its extension */
     template<typename StringType = std::string_view>

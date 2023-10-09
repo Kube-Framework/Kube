@@ -16,7 +16,7 @@ inline StringType kF::IO::File::filenameWithExtension(void) const noexcept
     auto index = _path.size();
     while (--index && ((_path[index] != '/') & (_path[index] != '\\')));
     index = bool(index) * (index + 1); // Only increment by 1 if not zero
-    return _path.toView().substr(index);
+    return StringType(_path.toView().substr(index));
 }
 
 template<typename StringType>
@@ -27,11 +27,11 @@ inline StringType kF::IO::File::filename(void) const noexcept
     auto index = file.size();
     while (--index) {
         if (file[index] == '.')
-            return file.substr(0, index);
+            return StringType(file.substr(0, index));
         else if ((file[index] == '/') | (file[index] == '\\'))
             break;
     }
-    return file;
+    return StringType(file);
 }
 
 template<typename StringType>
@@ -42,7 +42,7 @@ inline StringType kF::IO::File::directoryPath(void) const noexcept
         return StringType();
     auto index = _path.size();
     while (--index && ((_path[index] != '/') & (_path[index] != '\\')));
-    return _path.toView().substr(0, index);
+    return StringType(_path.toView().substr(0, index));
 }
 
 template<kF::IO::Internal::ResizableContainer Container>

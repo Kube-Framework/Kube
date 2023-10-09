@@ -24,9 +24,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wunused
         -Wpointer-arith
         -Wno-missing-field-initializers
-        -fno-exceptions # No exceptions !
         ${WerrorFlag}
     )
+    # No exceptions !
+    if(KF_NOEXCEPT)
+        add_compile_options(-fno-exceptions)
+    endif()
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(
             -Wno-dtor-name
@@ -50,10 +53,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    add_compile_options(
-        /Zc:preprocessor # Enable __VA_OPT__
-        /D_HAS_EXCEPTIONS=0 # No exceptions !
-    )
+    # Enable __VA_OPT__
+    add_compile_options(/Zc:preprocessor)
+    # No exceptions !
+    if(KF_NOEXCEPT)
+        add_compile_options(/D_HAS_EXCEPTIONS=0)
+    endif()
     add_compile_definitions(
         NOMINMAX # MSVC min / max issue
     )
