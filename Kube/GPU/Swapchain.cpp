@@ -75,9 +75,7 @@ void GPU::Swapchain::createSwapchain(const SwapchainHandle oldSwapchain) noexcep
     _extent = extent;
     _surfaceFormat = surfaceFormat;
     _presentMode = presentMode;
-#if KUBE_DEBUG_BUILD
     kFInfo("[GPU] Swapchain creation: PresentMode '", PresentModeName(_presentMode), "' Extent (",  _extent.width, ", ", _extent.height, ')');
-#endif
 }
 
 GPU::Swapchain::SwapchainImages GPU::Swapchain::queryImages(void) const noexcept
