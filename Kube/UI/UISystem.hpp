@@ -163,6 +163,13 @@ public:
     [[nodiscard]] DPI windowDPI(void) const noexcept { return _cache.windowDPI; }
 
 
+    /** @brief Get FullScreen */
+    [[nodiscard]] bool fullscreen(void) const noexcept;
+
+    /** @brief Set fullscreen */
+    void setFullscreen(const bool fullscreen) noexcept;
+
+
     /** @brief Get current cursor */
     [[nodiscard]] Cursor cursor(void) const noexcept { return _cursorCache.cursor; }
 

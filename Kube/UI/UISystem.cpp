@@ -711,6 +711,20 @@ void UI::UISystem::dispatchDelayedEvents(void) noexcept
     _eventCache.delayedEvents.clear();
 }
 
+bool UI::UISystem::fullscreen(void) const noexcept
+{
+    const auto windowFlags = SDL_GetWindowFlags(_cache.window);
+    if (windowFlags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP))
+        return true;
+    else
+        return false;
+}
+
+void UI::UISystem::setFullscreen(const bool fullscreen) noexcept
+{
+    SDL_SetWindowFullscreen(_cache.window, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+}
+
 void UI::UISystem::setCursor(const Cursor cursor) noexcept
 {
     if (_cursorCache.cursor == cursor)
