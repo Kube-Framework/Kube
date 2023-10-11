@@ -675,7 +675,7 @@ inline ECS::Entity UI::UISystem::traverseClippedEventTableWithHover(
             hoverStack.push(entity);
             // Hit entity is entered
             if (const auto it = hoveredEntities.find(entity); it == hoveredEntities.end()) {
-                discardHoveredEntities();
+                // discardHoveredEntities(); // Changes ordering of hover events
                 flags = onEnter(event, component, clippedArea, entity);
                 hoveredEntities.push(entity);
             // Hit entity is already entered
