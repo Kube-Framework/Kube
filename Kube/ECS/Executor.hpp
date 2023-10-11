@@ -281,8 +281,8 @@ private:
     /** @brief Build a pipeline graph given its index */
     void buildPipelineGraph(const PipelineIndex pipelineIndex) noexcept;
 
-    /** @brief Wait executor to enter IDLE state (no pipeline running) */
-    void waitIDLE(void) noexcept;
+    /** @brief Wait executor to enter Idle state (no pipeline running) */
+    void waitIdle(void) noexcept;
 };
 static_assert_alignof_double_cacheline(kF::ECS::Executor);
 

@@ -78,7 +78,14 @@ void ECS::Executor::setPipelineTickRate(const PipelineIndex pipelineIndex, const
 void ECS::Executor::stop(void) noexcept
 {
     const auto res = _eventQueue.push([this] {
-        waitIDLE();
+        // Wait all pipelines to stop
+        waitIdle();
+        // Exhaust pipeline events before closing
+        for (auto &queue : _pipelines.events) {
+            PipelineEvent event;
+            while (queue->pop(event))
+                event();
+        }
         return false;
     });
     kFEnsure(res, "ECS::Executor::stop: Critical event couldn't not get received");
@@ -117,9 +124,8 @@ bool ECS::Executor::processEvents(void) noexcept
     ExecutorEvent event;
     while (_eventQueue.pop(event)) {
         // If event returned false, stop executor
-        if (event()) [[likely]]
-            continue;
-        return false;
+        if (!event()) [[unlikely]]
+            return false;
     }
     return true;
 }
@@ -296,7 +302,7 @@ static void PreciseSleep(const std::int64_t nanoseconds) noexcept
 }
 #endif
 
-void ECS::Executor::waitIDLE(void) noexcept
+void ECS::Executor::waitIdle(void) noexcept
 {
     for (auto &graph : _pipelines.graphs)
         graph->waitSpin();

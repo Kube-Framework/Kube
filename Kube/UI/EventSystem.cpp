@@ -10,6 +10,7 @@
 
 #include "EventSystem.hpp"
 #include "PresentPipeline.hpp"
+#include "App.hpp"
 
 using namespace kF;
 
@@ -63,7 +64,7 @@ void UI::EventSystem::interpretEvent(const SDL_Event &event) noexcept
 {
     switch (event.type) {
     case SDL_QUIT:
-        parent().stop();
+        parent().sendEvent<PresentPipeline>([] { UI::App::Get().stop(); });
         break;
     case SDL_WINDOWEVENT:
         switch (event.window.event) {

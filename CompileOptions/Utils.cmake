@@ -12,6 +12,7 @@ function(_utils_target_compile_shaders_impl TargetName)
             continue()
         endif()
         set(OutputPath ${CMAKE_CURRENT_BINARY_DIR}/${RelativePath})
+        file(MAKE_DIRECTORY ${OutputPath})
         add_custom_command(
             COMMAND
                 # glslang
