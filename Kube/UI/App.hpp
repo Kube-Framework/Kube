@@ -144,6 +144,14 @@ public:
     /** @brief Stop app */
     void stop(void) noexcept;
 
+
+protected:
+    /** @brief On run virtual callback */
+    virtual void onAboutToRun(void) noexcept {}
+
+    /** @brief On stop virtual callback */
+    virtual void onAboutToStop(void) noexcept {}
+
 private:
     /** @brief Backend Instance */
     struct BackendInstance

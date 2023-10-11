@@ -238,14 +238,15 @@ void UI::App::setWindowSize(const Size size) noexcept
 
 void UI::App::run(void) noexcept
 {
+    onAboutToRun();
     _executor.run();
 }
 
 void UI::App::stop(void) noexcept
 {
+    onAboutToStop();
     _executor.stop();
 }
-
 
 UI::UIString UI::App::clipboard(void) const noexcept
 {
