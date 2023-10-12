@@ -22,7 +22,7 @@ GPU::PhysicalDevice::PhysicalDevice(void) noexcept
         ::vkGetPhysicalDeviceProperties(device, &properties);
         kFInfo(
             (device == handle() ? "\t-> " : "\t"), properties.deviceName,
-            " driver ", VK_VERSION_MAJOR(properties.driverVersion), ".", VK_VERSION_MINOR(properties.driverVersion), ".", VK_VERSION_PATCH(properties.driverVersion),
+            " driver ", VK_VERSION_MAJOR(properties.driverVersion), ".", VK_VERSION_MINOR(properties.driverVersion), ".", VK_VERSION_PATCH(properties.driverVersion), " (", properties.driverVersion, ")",
             " vendor ", properties.vendorID
         );
     }
