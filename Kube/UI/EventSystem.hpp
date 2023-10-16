@@ -7,6 +7,8 @@
 
 #include <Kube/ECS/System.hpp>
 
+#include <Kube/GPU/Base.hpp>
+
 #include "EventQueue.hpp"
 
 union SDL_Event;
@@ -27,7 +29,7 @@ public:
     virtual ~EventSystem(void) noexcept override = default;
 
     /** @brief Constructor */
-    EventSystem(void) noexcept;
+    EventSystem(GPU::BackendWindow * const backendWindow) noexcept;
 
 
     /** @brief Virtual tick callback */
@@ -49,9 +51,13 @@ private:
     /** @brief Dispatch all collected events */
     void dispatchEvents(void) noexcept;
 
+    /** @brief Update scaling factor */
+    void updateScalingFactor(void) noexcept;
 
-    Point _lastMousePosition {};
-    GPU::Extent2D _resizeExtent {};
+
+    GPU::BackendWindow *_backendWindow;
+    Point _pointToPixel {};
+    Point _mousePosition {};
     Button _buttons {};
     Modifier _modifiers {};
     Core::Vector<MouseEvent, EventAllocator> _mouseEvents {};

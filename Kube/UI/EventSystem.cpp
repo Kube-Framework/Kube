@@ -4,6 +4,7 @@
  */
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_vulkan.h>
 
 #include <Kube/GPU/GPU.hpp>
 #include <Kube/ECS/Executor.hpp>
@@ -14,7 +15,8 @@
 
 using namespace kF;
 
-UI::EventSystem::EventSystem(void) noexcept
+UI::EventSystem::EventSystem(GPU::BackendWindow * const backendWindow) noexcept
+    : _backendWindow(backendWindow)
 {
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 }
@@ -67,6 +69,7 @@ void UI::EventSystem::interpretEvent(const SDL_Event &event) noexcept
         parent().sendEvent<PresentPipeline>([] { UI::App::Get().stop(); });
         break;
     case SDL_WINDOWEVENT:
+        updateScalingFactor();
         switch (event.window.event) {
         case SDL_WINDOWEVENT_RESTORED:
         case SDL_WINDOWEVENT_RESIZED:
@@ -76,7 +79,6 @@ void UI::EventSystem::interpretEvent(const SDL_Event &event) noexcept
         {
             const GPU::Extent2D extent { static_cast<std::uint32_t>(event.window.data1), static_cast<std::uint32_t>(event.window.data2) };
             kFInfo("[UI] Window resized: ", extent.width, ", ", extent.height);
-            _resizeExtent = extent;
             parent().sendEvent<PresentPipeline>([] { GPU::GPUObject::Parent().dispatchViewSizeChanged(); });
             break;
         }
@@ -92,46 +94,46 @@ void UI::EventSystem::interpretEvent(const SDL_Event &event) noexcept
             .modifiers = _modifiers,
             .state = static_cast<bool>(event.key.state),
             .repeat = static_cast<bool>(event.key.repeat),
-            .timestamp = event.key.timestamp
+            .timestamp = event.key.timestamp,
         });
         break;
     case SDL_TEXTINPUT:
         _textEvents.push(TextEvent {
             .text = std::string_view(reinterpret_cast<const char *>(event.edit.text)),
-            .timestamp = event.edit.timestamp
+            .timestamp = event.edit.timestamp,
         });
         break;
     case SDL_MOUSEMOTION:
     {
-        const Point mousePos(static_cast<Pixel>(event.motion.x), static_cast<Pixel>(event.motion.y));
+        const auto mousePos = Point(static_cast<Pixel>(event.motion.x), static_cast<Pixel>(event.motion.y)) * _pointToPixel;
         _mouseEvents.push(MouseEvent {
             .pos = mousePos,
-            .motion = mousePos - _lastMousePosition,
+            .motion = mousePos - _mousePosition,
             .type = MouseEvent::Type::Motion,
             .activeButtons = static_cast<Button>(event.motion.state),
             .modifiers = _modifiers,
-            .timestamp = event.motion.timestamp
+            .timestamp = event.motion.timestamp,
         });
-        _lastMousePosition = mousePos;
+        _mousePosition = mousePos;
         break;
     }
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
         _mouseEvents.push(MouseEvent {
-            .pos = Point(static_cast<Pixel>(event.button.x), static_cast<Pixel>(event.button.y)),
+            .pos = Point(static_cast<Pixel>(event.button.x), static_cast<Pixel>(event.button.y)) * _pointToPixel,
             .type = event.button.state ? MouseEvent::Type::Press : MouseEvent::Type::Release,
             .button = static_cast<Button>(1u << (event.button.button - 1)),
             .activeButtons = static_cast<Button>(SDL_GetMouseState(nullptr, nullptr)),
             .modifiers = _modifiers,
-            .timestamp = event.button.timestamp
+            .timestamp = event.button.timestamp,
         });
         break;
     case SDL_MOUSEWHEEL:
         _wheelEvents.push(WheelEvent {
-            .pos = _lastMousePosition,
+            .pos = _mousePosition,
             .offset = Point(event.wheel.preciseX, event.wheel.preciseY),
             .modifiers = _modifiers,
-            .timestamp = event.wheel.timestamp
+            .timestamp = event.wheel.timestamp,
         });
         break;
     case SDL_DROPBEGIN:
@@ -149,7 +151,7 @@ void UI::EventSystem::interpretEvent(const SDL_Event &event) noexcept
     }
 }
 
-void kF::UI::EventSystem::dispatchEvents(void) noexcept
+void UI::EventSystem::dispatchEvents(void) noexcept
 {
     const auto dispatch = [](auto &queues, const auto &events) {
         // No events to dispatch
@@ -173,4 +175,18 @@ void kF::UI::EventSystem::dispatchEvents(void) noexcept
     dispatch(_wheelQueues, _wheelEvents);
     dispatch(_keyQueues, _keyEvents);
     dispatch(_textQueues, _textEvents);
+}
+
+void UI::EventSystem::updateScalingFactor(void) noexcept
+{
+    int pixelWidth {};
+    int pixelHeight {};
+    int pointWidth {};
+    int pointHeight {};
+    ::SDL_Vulkan_GetDrawableSize(_backendWindow, &pixelWidth, &pixelHeight);
+    ::SDL_GetWindowSize(_backendWindow, &pointWidth, &pointHeight);
+    _pointToPixel = UI::Point {
+        .x = UI::Pixel(pixelWidth) / UI::Pixel(pointWidth),
+        .y = UI::Pixel(pixelHeight) / UI::Pixel(pointHeight),
+    };
 }

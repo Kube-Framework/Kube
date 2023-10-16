@@ -228,8 +228,11 @@ void UI::UISystem::processEventHandlers(void) noexcept
 {
     // @todo Mouse / wheel events processed out of order
     _eventCache.mouseQueue->consume([this](const auto &range) {
-        for (const auto &event : range)
+        for (const auto &event : range) {
+            _eventCache.lastMousePosition = event.pos;
+            _eventCache.lastActiveMouseButtons = event.activeButtons;
             processMouseEventAreas(event);
+        }
     });
     _eventCache.wheelQueue->consume([this](const auto &range) {
         for (const auto &event : range)
@@ -248,14 +251,12 @@ void UI::UISystem::processEventHandlers(void) noexcept
     if (isDragging() && !_eventCache.mouseHoveredEntities.empty()) {
         kFAssert(_eventCache.mouseLock == ECS::NullEntity,
             "UI::UISystem::processEventHandlers: Cannot lock mouse while dragging");
-        int x, y;
-        const auto activeButtons = static_cast<Button>(SDL_GetMouseState(&x, &y));
         const MouseEvent leaveEvent {
-            .pos = UI::Point(static_cast<UI::Pixel>(x), static_cast<UI::Pixel>(y)),
+            .pos = _eventCache.lastMousePosition,
             .type = MouseEvent::Type::Leave,
-            .activeButtons = activeButtons,
+            .activeButtons = _eventCache.lastActiveMouseButtons,
             .modifiers = static_cast<Modifier>(SDL_GetModState()),
-            .timestamp = SDL_GetTicks()
+            .timestamp = SDL_GetTicks(),
         };
         for (const auto hoveredEntity : _eventCache.mouseHoveredEntities) {
             auto &component = get<MouseEventArea>(hoveredEntity);
@@ -722,7 +723,9 @@ bool UI::UISystem::fullscreen(void) const noexcept
 
 void UI::UISystem::setFullscreen(const bool fullscreen) noexcept
 {
-    SDL_SetWindowFullscreen(_cache.window, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+    parent().sendEvent<EventPipeline>([window = _cache.window, fullscreen] {
+       SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+    });
 }
 
 void UI::UISystem::setCursor(const Cursor cursor) noexcept
@@ -733,54 +736,9 @@ void UI::UISystem::setCursor(const Cursor cursor) noexcept
     SDL_SetCursor(reinterpret_cast<SDL_Cursor *>(_cursorCache.cursors.at(Core::ToUnderlying(cursor))));
 }
 
-bool UI::UISystem::relativeMouseMode(void) const noexcept
-{
-    return SDL_GetRelativeMouseMode();
-}
-
-void UI::UISystem::setRelativeMouseMode(const bool state) noexcept
-{
-    SDL_SetRelativeMouseMode(static_cast<SDL_bool>(state));
-}
-
-bool UI::UISystem::mouseGrab(void) const noexcept
-{
-    return SDL_GetWindowMouseGrab(_cache.window);
-}
-
-void UI::UISystem::setMouseGrab(const bool state) noexcept
-{
-    SDL_SetWindowMouseGrab(_cache.window, static_cast<SDL_bool>(state));
-}
-
-void UI::UISystem::setMouseCapture(const bool state) noexcept
-{
-    SDL_CaptureMouse(static_cast<SDL_bool>(state));
-}
-
-void UI::UISystem::setWindowGrab(const bool state) noexcept
-{
-    SDL_SetWindowGrab(_cache.window, static_cast<SDL_bool>(state));
-}
-
-bool UI::UISystem::keyboardGrab(void) const noexcept
-{
-    return SDL_GetWindowKeyboardGrab(_cache.window);
-}
-
-void UI::UISystem::setKeyboardGrab(const bool state) noexcept
-{
-    SDL_SetWindowKeyboardGrab(_cache.window, static_cast<SDL_bool>(state));
-}
-
-UI::Point UI::UISystem::mousePosition(void) const noexcept
-{
-    int x, y;
-    SDL_GetMouseState(&x, &y);
-    return Point(static_cast<Pixel>(x), static_cast<Pixel>(y));
-}
-
 void UI::UISystem::setMousePosition(const UI::Point pos) noexcept
 {
-    SDL_WarpMouseInWindow(_cache.window, static_cast<int>(pos.x), static_cast<int>(pos.y));
+    parent().sendEvent<EventPipeline>([window = _cache.window, pos] {
+        SDL_WarpMouseInWindow(window, static_cast<int>(pos.x), static_cast<int>(pos.y));
+    });
 }

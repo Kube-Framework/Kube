@@ -129,6 +129,9 @@ public:
         ECS::Entity dropLock { ECS::NullEntity };
         ECS::Entity keyLock { ECS::NullEntity };
         ECS::Entity textLock { ECS::NullEntity };
+        // Event states
+        Button lastActiveMouseButtons {};
+        Point lastMousePosition {};
         // Delayed events
         DelayedEvents delayedEvents {};
         // Drag & drop
@@ -177,40 +180,14 @@ public:
     void setCursor(const Cursor cursor) noexcept;
 
 
-    /** @brief Get relative mouse mode state */
-    [[nodiscard]] bool relativeMouseMode(void) const noexcept;
-
-    /** @brief Set relative mouse mode state */
-    void setRelativeMouseMode(const bool state) noexcept;
-
-
-    /** @brief Get mouse grab state */
-    [[nodiscard]] bool mouseGrab(void) const noexcept;
-
-    /** @brief Set current mouse grab state */
-    void setMouseGrab(const bool state) noexcept;
-
-
-    /** @brief Set current mouse capture state */
-    void setMouseCapture(const bool state) noexcept;
-
-
-    /** @brief Set current window grab state */
-    void setWindowGrab(const bool state) noexcept;
-
-
     /** @brief Get mouse position inside window */
-    [[nodiscard]] UI::Point mousePosition(void) const noexcept;
+    [[nodiscard]] inline Point mousePosition(void) const noexcept { return _eventCache.lastMousePosition; }
 
     /** @brief Set mouse position inside window */
-    void setMousePosition(const UI::Point pos) noexcept;
+    void setMousePosition(const Point pos) noexcept;
 
-
-    /** @brief Get keyboard grab state */
-    [[nodiscard]] bool keyboardGrab(void) const noexcept;
-
-    /** @brief Set current keyboard grab state */
-    void setKeyboardGrab(const bool state) noexcept;
+    /** @brief Get active mouse buttons */
+    [[nodiscard]] inline Button activeButtons(void) const noexcept { return _eventCache.lastActiveMouseButtons; }
 
 
     /** @brief Get scene max depth */
@@ -229,8 +206,8 @@ public:
 
 
     /** @brief Get root item */
-    [[nodiscard]] Item &root(void) noexcept { return *_cache.root; }
-    [[nodiscard]] const Item &root(void) const noexcept { return *_cache.root; }
+    [[nodiscard]] inline Item &root(void) noexcept { return *_cache.root; }
+    [[nodiscard]] inline const Item &root(void) const noexcept { return *_cache.root; }
 
     /** @brief Construct root Item instance */
     template<typename Derived, typename ...Args>

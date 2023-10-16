@@ -217,7 +217,7 @@ UI::App::App(
             return true;
         }
     ); // @todo make pipeline without events with assert !
-    _executor.addSystem<EventSystem>();
+    _executor.addSystem<EventSystem>(_backendInstance.window);
 
     // Present pipeline
     _executor.addPipeline<PresentPipeline>(
