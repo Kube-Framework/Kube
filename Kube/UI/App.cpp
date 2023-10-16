@@ -149,13 +149,16 @@ UI::App::BackendInstance::BackendInstance(
     if (size.height == FillWindowSize.height)
         size.height = static_cast<Pixel>(rect.h);
 
+    // Disable mouse relative scaling for HiDPI screens
+    SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "0");
+
     // Create the backend window
     UIString str(windowTitle);
     window = SDL_CreateWindow(
         str.c_str(),
         static_cast<int>(pos.x), static_cast<int>(pos.y),
         static_cast<int>(size.width), static_cast<int>(size.height),
-        ToWindowFlags(windowFlags) | SDL_WINDOW_VULKAN
+        ToWindowFlags(windowFlags) | SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI
     );
     kFEnsure(window, "UI::App::CreateBackendWindow: Couldn't create window '", SDL_GetError(), '\'');
 
