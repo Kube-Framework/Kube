@@ -31,6 +31,10 @@ public:
     /** @brief Constructor */
     EventSystem(GPU::BackendWindow * const backendWindow) noexcept;
 
+    /** @brief Copy is not allowed */
+    EventSystem(const EventSystem &other) noexcept = delete;
+    EventSystem &operator=(const EventSystem &other) noexcept = delete;
+
 
     /** @brief Virtual tick callback */
     [[nodiscard]] virtual bool tick(void) noexcept override;
