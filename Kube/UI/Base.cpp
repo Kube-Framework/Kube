@@ -48,6 +48,30 @@ std::string_view UI::OpenSingleFilePicker(
         return std::string_view();
 }
 
+std::string_view UI::OpenSingleFileSaver(
+    const std::string_view &title,
+    const std::string_view &defaultPath,
+    const std::initializer_list<std::string_view> &filters
+) noexcept
+{
+    Core::SmallString<UIAllocator> titleStr(title);
+    Core::SmallString<UIAllocator> defaultPathStr(defaultPath);
+    Core::Vector<Core::SmallString<UIAllocator>, UIAllocator> filtersStrs(filters.begin(), filters.end());
+    Core::Vector<const char *, UIAllocator> filtersCstrs(filtersStrs.begin(), filtersStrs.end(), [](const Core::SmallString<UIAllocator> &str) { return str.c_str(); });
+
+    const auto file = ::tinyfd_saveFileDialog(
+        titleStr.c_str(),
+        defaultPathStr.c_str(),
+        static_cast<int>(filtersCstrs.size()),
+        filtersCstrs.data(),
+        nullptr
+    );
+    if (file)
+        return std::string_view(file);
+    else
+        return std::string_view();
+}
+
 namespace kF::UI
 {
     std::ostream &operator<<(std::ostream &lhs, const kF::UI::Color &rhs) noexcept

@@ -584,6 +584,13 @@ namespace kF::UI
         const std::string_view &defaultPath = {},
         const std::initializer_list<std::string_view> &filters = {}
     ) noexcept;
+
+    /** @brief Open a single file saver */
+    [[nodiscard]] std::string_view OpenSingleFileSaver(
+        const std::string_view &title = {},
+        const std::string_view &defaultPath = {},
+        const std::initializer_list<std::string_view> &filters = {}
+    ) noexcept;
 }
 
 namespace std
