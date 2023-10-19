@@ -36,6 +36,19 @@ inline StringType kF::IO::File::filename(void) const noexcept
 
 template<typename StringType>
     requires std::constructible_from<StringType, std::string_view>
+inline StringType kF::IO::File::extension(void) const noexcept
+{
+    const auto file = filenameWithExtension();
+    auto index = file.size();
+    while (--index) {
+        if (file[index] == '.')
+            return StringType(file.substr(index + 1));
+    }
+    return StringType();
+}
+
+template<typename StringType>
+    requires std::constructible_from<StringType, std::string_view>
 inline StringType kF::IO::File::directoryPath(void) const noexcept
 {
     if (_path.empty())

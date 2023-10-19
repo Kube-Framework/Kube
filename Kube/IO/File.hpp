@@ -94,6 +94,11 @@ public:
         requires std::constructible_from<StringType, std::string_view>
     [[nodiscard]] StringType filename(void) const noexcept;
 
+    /** @brief Get file name with its extension */
+    template<typename StringType = std::string_view>
+        requires std::constructible_from<StringType, std::string_view>
+    [[nodiscard]] StringType extension(void) const noexcept;
+
     /** @brief Get directory path */
     template<typename StringType = std::string_view>
         requires std::constructible_from<StringType, std::string_view>
