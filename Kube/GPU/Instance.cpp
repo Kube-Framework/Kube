@@ -28,6 +28,7 @@ GPU::Instance::Instance(const Core::Version applicationVersion) noexcept
     auto extensions = getExtensions(parent().backendWindow());
     auto layers = getLayers();
 #if KUBE_DEBUG_BUILD
+    kF::Core::InfoLog.logRfc3339();
     kFInfoRaw("[GPU] Extensions: ");
     bool first = true;
     for (const auto &extension : extensions) {
@@ -37,7 +38,8 @@ GPU::Instance::Instance(const Core::Version applicationVersion) noexcept
             first = false;
         kFInfoRaw(extension);
     }
-    kFInfo();
+    kFInfoNewLine();
+    kF::Core::InfoLog.logRfc3339();
     kFInfoRaw("[GPU] Layers: ");
     first = true;
     for (const auto &layer : layers) {
@@ -47,7 +49,7 @@ GPU::Instance::Instance(const Core::Version applicationVersion) noexcept
             first = false;
         kFInfoRaw(layer);
     }
-    kFInfo();
+    kFInfoNewLine();
 #endif
 
     // Create instance

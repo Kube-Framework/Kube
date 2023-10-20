@@ -34,7 +34,6 @@ public:
     /** @brief Move assignment */
     inline Log &operator=(Log &&other) noexcept { _target = other._target; return *this; }
 
-
     /** @brief Write a message to the target ostream
      *  @tparam AddNewLine If 'Yes', adds 'std::endl' to the message */
     template<HasNewLine NewLine = HasNewLine::Yes, typename ...Args>
@@ -42,6 +41,9 @@ public:
 
     /** @brief Write a line break and flush */
     inline void log(void) noexcept { *_target << std::endl; }
+
+    /** @brief Log RFC3339 time */
+    Log &logRfc3339(void) noexcept;
 
 
     /** @brief Flush target */
@@ -59,12 +61,14 @@ namespace kF::Core
 }
 
 /** @brief Write a message to the info log */
-# define kFInfo(...)     kF::Core::InfoLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__) )
-# define kFInfoRaw(...)  kF::Core::InfoLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::No>) ( __VA_OPT__(__VA_ARGS__) )
+#define kFInfo(...)     kF::Core::InfoLog.logRfc3339().log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__) )
+#define kFInfoRaw(...)  kF::Core::InfoLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::No>) ( __VA_OPT__(__VA_ARGS__) )
+#define kFInfoNewLine(...)  kF::Core::InfoLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__ ) )
 
 /** @brief Write a message to the error log */
-#define kFError(...)     kF::Core::ErrorLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__) )
+#define kFError(...)     kF::Core::ErrorLog.logRfc3339().log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__) )
 #define kFErrorRaw(...)  kF::Core::ErrorLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::No>) ( __VA_OPT__(__VA_ARGS__) )
+#define kFInfoNewLine(...)  kF::Core::ErrorLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__ ) )
 
 /** @brief String view overload */
 std::ostream &operator<<(std::ostream &lhs, const std::string_view &rhs) noexcept;

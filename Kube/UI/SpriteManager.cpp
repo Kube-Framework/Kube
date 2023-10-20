@@ -451,6 +451,7 @@ void UI::SpriteManager::updateDelayedRemoves(void) noexcept
 #if KUBE_DEBUG_BUILD
     if (it != end) {
         bool first = true;
+        kF::Core::InfoLog.logRfc3339();
         kFInfoRaw("[UI] Delete sprites { ");
         for (auto current = it; current != end; ++current) {
             if (!first)
@@ -459,7 +460,7 @@ void UI::SpriteManager::updateDelayedRemoves(void) noexcept
                 first = false;
             kFInfoRaw(current->spriteIndex);
         }
-        kFInfo(" }");
+        kFInfoNewLine(" }");
     }
 #endif
 

@@ -62,6 +62,7 @@ GPU::LogicalDevice::LogicalDevice(void) noexcept
     // Update queue handles
     parent().queueManager().retreiveQueuesHandlers();
 #if KUBE_DEBUG_BUILD
+    kF::Core::InfoLog.logRfc3339();
     kFInfoRaw("[GPU] Logical Extensions: ");
     bool first = true;
     for (const auto &extension : deviceFeatures->extensions) {
@@ -71,7 +72,7 @@ GPU::LogicalDevice::LogicalDevice(void) noexcept
             first = false;
         kFInfoRaw(extension);
     }
-    kFInfo();
+    kFInfoNewLine();
 #endif
 }
 
