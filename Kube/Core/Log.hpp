@@ -68,7 +68,7 @@ namespace kF::Core
 /** @brief Write a message to the error log */
 #define kFError(...)     kF::Core::ErrorLog.logRfc3339().log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__) )
 #define kFErrorRaw(...)  kF::Core::ErrorLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::No>) ( __VA_OPT__(__VA_ARGS__) )
-#define kFInfoNewLine(...)  kF::Core::ErrorLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__ ) )
+#define kFErrorNewLine(...)  kF::Core::ErrorLog.log __VA_OPT__(<kF::Core::Log::HasNewLine::Yes>) ( __VA_OPT__(__VA_ARGS__ ) )
 
 /** @brief String view overload */
 std::ostream &operator<<(std::ostream &lhs, const std::string_view &rhs) noexcept;
