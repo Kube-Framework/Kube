@@ -182,31 +182,96 @@ std::uint32_t UI::PrimitiveProcessor::InsertInstances<UI::Text>(
 template<auto GetX, auto GetY>
 static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
 {
-    const auto begin = out;
-    auto it = params.text->str.begin();
-    const auto end = params.text->str.end();
-    Size size {};
+    const auto IsLastLine = [](const auto &params, const auto &offset) { return GetY(offset.y) + params.lineHeight >= GetY(params.text->area.size); };
+    const auto BreakLine = [IsLastLine](const auto &params, auto &offset, auto &maxLineWidth, auto &isLastLine) {
+        maxLineWidth = std::max(maxLineWidth, GetX(offset));
+        GetX(offset) = {};
+        GetY(offset) += params.lineHeight;
+        lastLine = IsLastLine(params, offset);
+    };
 
-    while (it != end) {
-        // Compute line metrics
-        auto lineMetrics = ComputeLineMetrics<GetX, GetY>(params, it, end, GetY(size));
+    const auto beginGlyph = out;
+    auto lastWordGlyph = out;
+    auto lastWordChar = params.text->str.begin();
+    auto from = params.text->str.begin();
+    const auto to = params.text->str.end();
+    const auto elideSize = params.text->elide * params.elideSize;
+    Point offset {};
+    Pixel maxLineWidth {};
+    bool lastLine = IsLastLine(params, offset);
 
-        // Compute line glyphs
-            lineMetrics.width = ComputeLine<GetX, GetY>(out, params, it, end, lineMetrics, GetY(size));
-
-        // Update caches
-        params.linesMetrics.push(std::move(lineMetrics));
-        GetX(size) = std::max(GetX(size), lineMetrics.width);
-        GetY(size) += params.lineHeight;
-
-        // Stop on line elided
-        if (lineMetrics.elided) [[unlikely]]
-            break;
+    while (from != to) {
+        const auto unicode = Core::Unicode::GetNextChar(from, to);
+        if (!unicode) [[unlikely]] {
+            continue;
+        } else if (std::isspace(unicode)) {
+            // Save new head as last word begin
+            lastWordGlyph = out;
+            lastWordChar = from;
+            // Line break
+            if (unicode == '\n') {
+                BreakLine(params, offset, maxLineWidth, lastLine);
+            // Regular or tab space
+            } else
+                GetX(offset) += (unicode == ' ' ? 1.0f : params.text->spacesPerTab) * params.spaceWidth;
+        } else [[likely]] {
+            // Compute glyph width
+            const auto &metrics = params.getMetricsOf(unicode);
+            const auto advance = metrics.advance;
+            // The glyph is out of line width
+            if (GetX(offset) + advance > GetX(params.text->area.size) + elideSize) {
+                // Elide the text on each line or last line in case of fit
+                if (params.text->elide & (!params.text->fit | lastLine)) {
+                    BreakLine(params, offset, maxLineWidth, lastLine);
+                    continue;
+                }
+                // Fit the text on each line
+                if (params.text->fit) {
+                    out = lastWordGlyph;
+                    from = lastWordChar;
+                    BreakLine(params, offset, maxLineWidth, lastLine);
+                    continue;
+                }
+            }
+            // Insert glyph if we have the space to insert another glyph
+            new (out++) Glyph {
+                .uv = metrics.uv,
+                .pos = offset,
+                .spriteIndex = params.spriteIndex,
+                .color = params.text->color,
+                .rotationOrigin = Point {},
+                .rotationAngle = params.text->rotationAngle,
+                .vertical = float(params.vertical),
+            };
+            offset.x += advance;
+        }
     }
 
-    // Position characters if any to draw
-    if (begin != out) [[likely]]
-        ComputeGlyphPositions<GetX, GetY>(begin, out, params, size);
+    // const auto begin = out;
+    // auto it = params.text->str.begin();
+    // const auto end = params.text->str.end();
+    // Size size {};
+
+    // while (it != end) {
+    //     // Compute line metrics
+    //     auto lineMetrics = ComputeLineMetrics<GetX, GetY>(params, it, end, GetY(size));
+
+    //     // Compute line glyphs
+    //     lineMetrics.width = ComputeLine<GetX, GetY>(out, params, it, end, lineMetrics, GetY(size));
+
+    //     // Update caches
+    //     params.linesMetrics.push(std::move(lineMetrics));
+    //     GetX(size) = std::max(GetX(size), lineMetrics.width);
+    //     GetY(size) += params.lineHeight;
+
+    //     // Stop on line elided
+    //     if (lineMetrics.elided) [[unlikely]]
+    //         break;
+    // }
+
+    // // Position characters if any to draw
+    // if (begin != out) [[likely]]
+    //     ComputeGlyphPositions<GetX, GetY>(begin, out, params, size);
 }
 
 template<auto GetX, auto GetY>
@@ -223,9 +288,7 @@ static UI::LineMetrics UI::ComputeLineMetrics(
 
     LineMetrics elideMetrics;
     LineMetrics metrics;
-    const auto spaceWidth = params.spaceWidth;
     const auto tabMultiplier = params.text->spacesPerTab - 1;
-    const auto textSize = params.text->area.size;
     const bool lastLine = (yOffset + params.lineHeight * 2) > (GetY(params.text->area.pos) + GetY(params.text->area.size));
     const bool xFit = params.text->fit | params.text->elide;
     const bool xElide = params.text->elide & (lastLine | !params.text->fit);
@@ -242,7 +305,7 @@ static UI::LineMetrics UI::ComputeLineMetrics(
         // Glyph
         if (!std::isspace(unicode)) {
             const auto advance = params.getMetricsOf(unicode).advance;
-            if (CheckFit(metrics, textSize, xFit, advance + elideSize)) [[likely]] {
+            if (CheckFit(metrics, params.text->area.size, xFit, advance + elideSize)) [[likely]] {
                 metrics.totalSize += advance;
                 metrics.totalGlyphSize += advance;
             } else [[unlikely]] {
@@ -252,8 +315,8 @@ static UI::LineMetrics UI::ComputeLineMetrics(
         // Space
         } else if (const bool isTab = unicode == '\t'; isTab | (unicode == ' ')) {
             const auto spaceCount = 1.0f + tabMultiplier * static_cast<Pixel>(isTab);
-            const auto size = spaceWidth * spaceCount;
-            if (CheckFit(metrics, textSize, xFit, size + elideSize)) [[likely]] {
+            const auto size = params.spaceWidth * spaceCount;
+            if (CheckFit(metrics, params.text->area.size, xFit, size + elideSize)) [[likely]] {
                 metrics.spaceCount += spaceCount;
                 metrics.totalSize += size;
             } else [[unlikely]] {
