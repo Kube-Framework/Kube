@@ -79,4 +79,7 @@ namespace kF::Core::Platform
 {
     /** @brief Get the system page size */
     [[nodiscard]] std::size_t GetPageSize(void) noexcept;
+
+    /** @brief Operating system separator */
+    static constexpr char Separator = KUBE_PLATFORM_WINDOWS ? '\\' : '/';
 }
