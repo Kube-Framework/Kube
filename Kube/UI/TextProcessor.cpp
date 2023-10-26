@@ -182,69 +182,151 @@ std::uint32_t UI::PrimitiveProcessor::InsertInstances<UI::Text>(
 template<auto GetX, auto GetY>
 static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
 {
-    const auto IsLastLine = [](const auto &params, const auto &offset) { return GetY(offset.y) + params.lineHeight >= GetY(params.text->area.size); };
-    const auto BreakLine = [IsLastLine](const auto &params, auto &offset, auto &maxLineWidth, auto &isLastLine) {
+    // Some utility functions
+    constexpr auto IsLastLine = [](const auto &params, const auto &offset) { return GetY(params.text->area.size) - GetY(offset) < params.lineHeight * 2.0f; };
+    constexpr auto BreakLine = [IsLastLine](const auto &params, auto &offset, auto &maxLineWidth, auto &lastLine, auto &consecutiveSpaces) {
         maxLineWidth = std::max(maxLineWidth, GetX(offset));
         GetX(offset) = {};
         GetY(offset) += params.lineHeight;
         lastLine = IsLastLine(params, offset);
+        consecutiveSpaces = {};
+    };
+    constexpr auto InsertGlyph = [](auto &out, const auto &params, auto &offset, const auto &metrics) {
+        new (out) Glyph {
+            .uv = metrics.uv,
+            .pos = [&params, offset, &metrics] {
+                auto pos = offset;
+                GetX(pos) += metrics.bearing.x;
+                GetY(pos) += !params.text->vertical ? params.ascender - metrics.bearing.y : -params.descender - (metrics.uv.size.height - metrics.bearing.y);
+                return pos;
+            }(),
+            .spriteIndex = params.spriteIndex,
+            .color = params.text->color,
+            .rotationOrigin = {},
+            .rotationAngle = params.text->rotationAngle,
+            .vertical = float(params.text->vertical),
+        };
+        ++out;
+        GetX(offset) += metrics.advance;
     };
 
-    const auto beginGlyph = out;
+    // Store the begin of glyph output
+    const auto glyphBegin = out;
+    // Last word cache
     auto lastWordGlyph = out;
     auto lastWordChar = params.text->str.begin();
+    // Last elide cache
+    auto lastElideGlyph = out;
+    auto lastElideChar = params.text->str.begin();
+    Pixel lastElideOffset {};
+    // String cache
     auto from = params.text->str.begin();
     const auto to = params.text->str.end();
-    const auto elideSize = params.text->elide * params.elideSize;
+    // Position cache
     Point offset {};
     Pixel maxLineWidth {};
+    Pixel consecutiveSpaces {};
     bool lastLine = IsLastLine(params, offset);
 
+    // Loop through every character and produce glyphs
     while (from != to) {
+        const auto lastChar = from;
         const auto unicode = Core::Unicode::GetNextChar(from, to);
         if (!unicode) [[unlikely]] {
             continue;
         } else if (std::isspace(unicode)) {
+            // Line break
+            if (unicode == '\n') {
+                BreakLine(params, offset, maxLineWidth, lastLine, consecutiveSpaces);
+            // Regular or tab space
+            } else
+                consecutiveSpaces += unicode == ' ' ? 1.0f : params.text->spacesPerTab;
             // Save new head as last word begin
             lastWordGlyph = out;
             lastWordChar = from;
-            // Line break
-            if (unicode == '\n') {
-                BreakLine(params, offset, maxLineWidth, lastLine);
-            // Regular or tab space
-            } else
-                GetX(offset) += (unicode == ' ' ? 1.0f : params.text->spacesPerTab) * params.spaceWidth;
         } else [[likely]] {
-            // Compute glyph width
+            // Query glyph metrics
             const auto &metrics = params.getMetricsOf(unicode);
-            const auto advance = metrics.advance;
+            // Compute next offset considering previous consecutive spaces
+            const auto nextXOffset = GetX(offset) + consecutiveSpaces * params.spaceWidth + metrics.advance;
+            // If the text can be elided, store the position of the last character that fits elide
+            if ((lastLine & params.text->elide) && (nextXOffset + params.elideSize) < GetX(params.text->area.size)) {
+                lastElideGlyph = out;
+                lastElideChar = from;
+                lastElideOffset = GetX(offset);
+            }
             // The glyph is out of line width
-            if (GetX(offset) + advance > GetX(params.text->area.size) + elideSize) {
-                // Elide the text on each line or last line in case of fit
-                if (params.text->elide & (!params.text->fit | lastLine)) {
-                    BreakLine(params, offset, maxLineWidth, lastLine);
-                    continue;
-                }
+            if (nextXOffset > GetX(params.text->area.size)) {
+                // Elide the text on last line
+                if (params.text->elide & lastLine) {
+                    // Roll backward to insert pixel perfect dots
+                    out = lastElideGlyph;
+                    from = lastElideChar;
+                    GetX(offset) = lastElideOffset;
+                    const auto &dotMetrics = params.getMetricsOf('.');
+                    for (auto dotIndex = 0u; dotIndex != ElideDotCount; ++dotIndex)
+                        InsertGlyph(out, params, offset, dotMetrics);
+                    break;
                 // Fit the text on each line
-                if (params.text->fit) {
+                } else if (params.text->fit) {
                     out = lastWordGlyph;
                     from = lastWordChar;
-                    BreakLine(params, offset, maxLineWidth, lastLine);
+                    BreakLine(params, offset, maxLineWidth, lastLine, consecutiveSpaces);
                     continue;
+                // Break the line as we still have space for another line
+                } else if (params.text->elide) {
+                    BreakLine(params, offset, maxLineWidth, lastLine, consecutiveSpaces);
                 }
             }
-            // Insert glyph if we have the space to insert another glyph
-            new (out++) Glyph {
-                .uv = metrics.uv,
-                .pos = offset,
-                .spriteIndex = params.spriteIndex,
-                .color = params.text->color,
-                .rotationOrigin = Point {},
-                .rotationAngle = params.text->rotationAngle,
-                .vertical = float(params.vertical),
-            };
-            offset.x += advance;
+            // Apply previous consecutive stored spaces
+            GetX(offset) += consecutiveSpaces * params.spaceWidth;
+            consecutiveSpaces = {};
+            // Insert glyph
+            InsertGlyph(out, params, offset, metrics);
         }
+    }
+    // Break final line
+    BreakLine(params, offset, maxLineWidth, lastLine, consecutiveSpaces);
+
+    // Return if we don't have any character to display
+    if (out == glyphBegin)
+        return;
+
+    // Positionate glyphs using parameter anchor & text alignment
+    Size size {};
+    GetX(size) = maxLineWidth;
+    GetY(size) = offset.y;
+    const auto area = Area::ApplyAnchor(params.text->area, size, params.text->anchor);
+    const auto rotationOrigin = area.center();
+    // @todo Text alignment
+    for (auto glyphIt = glyphBegin; glyphIt != out; ++glyphIt) {
+        glyphIt->pos += area.pos;
+        glyphIt->rotationOrigin = rotationOrigin;
+        // if (glyphIt == out)
+        //     break;
+        // else if (GetX(glyphIt->pos) > GetX(lineGlyphBegin->pos))
+        //     continue;
+        // --glyphIt;
+        // const auto lineWidth = GetX(glyphIt->pos) + GetX(glyphIt->uv.size);
+        // Point alignmentOffset {};
+        // switch (params.text->textAlignment) {
+        // case TextAlignment::Left:
+        //     break;
+        // case TextAlignment::Center:
+        //     GetX(alignmentOffset) = (maxLineWidth - lineWidth) / 2.0f;
+        //     break;
+        // case TextAlignment::Right:
+        //     GetX(alignmentOffset) = maxLineWidth - lineWidth;
+        //     break;
+        // case TextAlignment::Justify:
+        //     kFAbort("[UI Text Processor] Justify text alignment not implemented");
+        //     break;
+        // }
+        // for (auto it = lineGlyphBegin; it <= glyphIt; ++it) {
+        //     it->pos += area.pos + alignmentOffset;
+        //     it->rotationOrigin = rotationOrigin;
+        // }
+        // lineGlyphBegin = glyphIt + 1;
     }
 
     // const auto begin = out;
