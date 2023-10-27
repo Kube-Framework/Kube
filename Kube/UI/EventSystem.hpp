@@ -45,6 +45,9 @@ public:
     [[nodiscard]] EventQueuePtr<EventType> addEventQueue(void) noexcept;
 
 
+    /** @brief Set mouse position */
+    void setMousePosition(const Point pos) noexcept;
+
 private:
     /** @brief Collect all events */
     void collectEvents(void) noexcept;

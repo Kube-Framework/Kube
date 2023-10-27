@@ -738,7 +738,7 @@ void UI::UISystem::setCursor(const Cursor cursor) noexcept
 
 void UI::UISystem::setMousePosition(const UI::Point pos) noexcept
 {
-    parent().sendEvent<EventPipeline>([window = _cache.window, pos] {
-        SDL_WarpMouseInWindow(window, static_cast<int>(pos.x), static_cast<int>(pos.y));
+    interact([pos](EventSystem &eventSystem) {
+        eventSystem.setMousePosition(pos);
     });
 }

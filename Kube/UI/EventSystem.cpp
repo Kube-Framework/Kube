@@ -190,3 +190,9 @@ void UI::EventSystem::updateScalingFactor(void) noexcept
         .y = UI::Pixel(pixelHeight) / UI::Pixel(pointHeight),
     };
 }
+
+void UI::EventSystem::setMousePosition(const Point pos) noexcept
+{
+    const auto hidpiPos = pos / _pointToPixel;
+    SDL_WarpMouseInWindow(_backendWindow, static_cast<int>(pos.x), static_cast<int>(pos.y));
+}
