@@ -190,7 +190,6 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
 
     // Loop through every character and produce glyphs
     while (from != to) {
-        const auto lastChar = from;
         const auto unicode = Core::Unicode::GetNextChar(from, to);
         if (!unicode) [[unlikely]] {
             continue;
