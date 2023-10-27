@@ -67,7 +67,7 @@ public:
 
 
     /** @brief Check if the sprite is valid */
-    [[nodiscard]] inline bool isValid(void) const noexcept { return _index != NullSpriteIndex; }
+    [[nodiscard]] inline bool isValid(void) const noexcept { return _index != NullFontIndex; }
 
     /** @brief Implicit conversion to FontIndex */
     [[nodiscard]] inline operator FontIndex(void) const noexcept { return _index; }

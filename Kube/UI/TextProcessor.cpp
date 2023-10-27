@@ -260,9 +260,10 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
     // Compute anchored area from text metrics
     const auto area = Area::ApplyAnchor(params.text->area, metrics, params.text->anchor);
     const auto rotationOrigin = area.center();
+    auto alignmentOffset = area.pos;
 
     // Positionate glyphs using parameter anchor & text alignment
-    for (auto lineBegin = glyphBegin; lineBegin != out; ) {
+    for (auto lineBegin = glyphBegin; lineBegin != out;) {
         // Find last character of line
         const auto lineIndex = int(GetY(lineBegin->pos)) / int(params.lineHeight);
         auto lineEnd = lineBegin + 1;
@@ -271,16 +272,15 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
         // Compute line width
         const auto lastLineGlyph = lineEnd - 1;
         const auto lineWidth = (GetX(lastLineGlyph->pos) + GetX(lastLineGlyph->uv.size)) - GetX(lineBegin->pos);
-        // Compute text alignment offset
-        Pixel alignmentOffset {};
+        // Adjust text alignment offset
         switch (params.text->textAlignment) {
         case TextAlignment::Left:
             break;
         case TextAlignment::Center:
-            alignmentOffset = (maxLineWidth - lineWidth) / 2.0f;
+            GetX(alignmentOffset) += (maxLineWidth - lineWidth) / 2.0f;
             break;
         case TextAlignment::Right:
-            alignmentOffset = maxLineWidth - lineWidth;
+            GetX(alignmentOffset) += maxLineWidth - lineWidth;
             break;
         case TextAlignment::Justify:
             kFAbort("[UI Text Processor] Justify text alignment not implemented");
@@ -288,8 +288,7 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
         }
         // Move text by anchored area offset and text alignment offset
         for (; lineBegin != lineEnd; ++lineBegin) {
-            lineBegin->pos += area.pos;
-            GetX(lineBegin->pos) += alignmentOffset;
+            lineBegin->pos = { std::round(lineBegin->pos.x + alignmentOffset.x), std::round(lineBegin->pos.y + alignmentOffset.y) };
             lineBegin->rotationOrigin = rotationOrigin;
         }
     }
