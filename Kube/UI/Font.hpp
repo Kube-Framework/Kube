@@ -65,6 +65,9 @@ public:
     /** @brief Get index */
     [[nodiscard]] inline FontIndex index(void) const noexcept { return _index; }
 
+    /** @brief Get parent font manager */
+    [[nodiscard]] inline FontManager &parent(void) const noexcept { return *_manager; }
+
 
     /** @brief Get space width of a font instance */
     [[nodiscard]] Pixel spaceWidth(void) const noexcept;

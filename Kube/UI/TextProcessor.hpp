@@ -47,7 +47,6 @@ namespace kF::UI
 
         /** @brief Text processor insert model */
         template<>
-        [[nodiscard]] std::uint32_t InsertInstances<Text>(const Text * const primitiveBegin, const Text * const primitiveEnd,
-                std::uint8_t * const instanceBegin) noexcept;
+        [[nodiscard]] std::uint32_t InsertInstances<Text>(const Text * const primitiveBegin, const Text * const primitiveEnd, std::uint8_t * const instanceBegin) noexcept;
     }
 }

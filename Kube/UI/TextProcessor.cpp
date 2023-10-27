@@ -40,9 +40,6 @@ namespace kF::UI
         bool elided {};
     };
 
-    /** @brief Pixel small optimized cache */
-    using LinesMetrics = Core::SmallVector<LineMetrics, Core::CacheLineSize / sizeof(LineMetrics), UIAllocator>;
-
     /** @brief Stores all parameters from a text computation */
     struct alignas_double_cacheline ComputeParameters
     {
@@ -57,7 +54,6 @@ namespace kF::UI
         Pixel lineCount {};
         SpriteIndex spriteIndex {};
         Pixel elideSize {};
-        LinesMetrics linesMetrics {};
 
         /** @brief Query glyph metrics of an unicode character */
         [[nodiscard]] inline const FontManager::GlyphMetrics &getMetricsOf(const std::uint32_t desired) const noexcept
@@ -71,44 +67,9 @@ namespace kF::UI
     template<auto GetX, auto GetY>
     static void ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept;
 
-    /** @brief Compute the metrics of a line of glyphs */
+    /** @brief Compute all glyphs from a text in packed mode */
     template<auto GetX, auto GetY>
-    [[nodiscard]] static LineMetrics ComputeLineMetrics(
-        ComputeParameters &params,
-        const std::string_view::iterator from,
-        const std::string_view::iterator to,
-        const Pixel yOffset
-    ) noexcept;
-
-    /** @brief Compute a line of glyphs from a text */
-    template<auto GetX, auto GetY>
-    static Pixel ComputeLine(
-        Glyph *&out,
-        ComputeParameters &params,
-        std::string_view::iterator &it,
-        const std::string_view::iterator to,
-        const LineMetrics &metrics,
-        const Pixel yOffset
-    ) noexcept;
-
-    /** @brief Compute the anchor of all glyphs within range */
-    template<auto GetX, auto GetY>
-    static void ComputeGlyphPositions(
-        Glyph * const from,
-        Glyph * const to,
-        const ComputeParameters &params,
-        const Size metrics
-    ) noexcept;
-
-    /** @brief Apply the offset of all glyphs within range */
-    template<auto GetX, auto GetY>
-    static void ApplyGlyphOffsets(
-        Glyph * const from,
-        Glyph * const to,
-        const ComputeParameters &params,
-        const Size metrics,
-        const Point offset
-    ) noexcept;
+    [[nodiscard]] static UI::Size ComputeTextMetricsFromParameters(const ComputeParameters &params) noexcept;
 }
 
 template<>
@@ -168,7 +129,6 @@ std::uint32_t UI::PrimitiveProcessor::InsertInstances<UI::Text>(
         params.lineHeight = fontManager.lineHeightAt(text.fontIndex);
         params.spriteIndex = fontManager.spriteAt(text.fontIndex);
         params.elideSize = params.getMetricsOf('.').advance * ElideDotCount * text.elide;
-        params.linesMetrics.clear();
 
         // Dispatch
         if (!text.vertical) [[likely]]
@@ -268,7 +228,7 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
                         InsertGlyph(out, params, offset, dotMetrics);
                     break;
                 // Fit the text on each line
-                } else if (params.text->fit) {
+                } else if (params.text->fit & !lastLine) {
                     out = lastWordGlyph;
                     from = lastWordChar;
                     BreakLine(params, offset, maxLineWidth, lastLine, consecutiveSpaces);
@@ -292,310 +252,45 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
     if (out == glyphBegin)
         return;
 
-    // Positionate glyphs using parameter anchor & text alignment
-    Size size {};
-    GetX(size) = maxLineWidth;
-    GetY(size) = offset.y;
-    const auto area = Area::ApplyAnchor(params.text->area, size, params.text->anchor);
+    // Compute text metrics
+    Size metrics {};
+    GetX(metrics) = maxLineWidth;
+    GetY(metrics) = GetY(offset);
+
+    // Compute anchored area from text metrics
+    const auto area = Area::ApplyAnchor(params.text->area, metrics, params.text->anchor);
     const auto rotationOrigin = area.center();
-    // @todo Text alignment
-    for (auto glyphIt = glyphBegin; glyphIt != out; ++glyphIt) {
-        glyphIt->pos += area.pos;
-        glyphIt->rotationOrigin = rotationOrigin;
-        // if (glyphIt == out)
-        //     break;
-        // else if (GetX(glyphIt->pos) > GetX(lineGlyphBegin->pos))
-        //     continue;
-        // --glyphIt;
-        // const auto lineWidth = GetX(glyphIt->pos) + GetX(glyphIt->uv.size);
-        // Point alignmentOffset {};
-        // switch (params.text->textAlignment) {
-        // case TextAlignment::Left:
-        //     break;
-        // case TextAlignment::Center:
-        //     GetX(alignmentOffset) = (maxLineWidth - lineWidth) / 2.0f;
-        //     break;
-        // case TextAlignment::Right:
-        //     GetX(alignmentOffset) = maxLineWidth - lineWidth;
-        //     break;
-        // case TextAlignment::Justify:
-        //     kFAbort("[UI Text Processor] Justify text alignment not implemented");
-        //     break;
-        // }
-        // for (auto it = lineGlyphBegin; it <= glyphIt; ++it) {
-        //     it->pos += area.pos + alignmentOffset;
-        //     it->rotationOrigin = rotationOrigin;
-        // }
-        // lineGlyphBegin = glyphIt + 1;
-    }
 
-    // const auto begin = out;
-    // auto it = params.text->str.begin();
-    // const auto end = params.text->str.end();
-    // Size size {};
-
-    // while (it != end) {
-    //     // Compute line metrics
-    //     auto lineMetrics = ComputeLineMetrics<GetX, GetY>(params, it, end, GetY(size));
-
-    //     // Compute line glyphs
-    //     lineMetrics.width = ComputeLine<GetX, GetY>(out, params, it, end, lineMetrics, GetY(size));
-
-    //     // Update caches
-    //     params.linesMetrics.push(std::move(lineMetrics));
-    //     GetX(size) = std::max(GetX(size), lineMetrics.width);
-    //     GetY(size) += params.lineHeight;
-
-    //     // Stop on line elided
-    //     if (lineMetrics.elided) [[unlikely]]
-    //         break;
-    // }
-
-    // // Position characters if any to draw
-    // if (begin != out) [[likely]]
-    //     ComputeGlyphPositions<GetX, GetY>(begin, out, params, size);
-}
-
-template<auto GetX, auto GetY>
-static UI::LineMetrics UI::ComputeLineMetrics(
-    ComputeParameters &params,
-    const std::string_view::iterator from,
-    const std::string_view::iterator to,
-    const Pixel yOffset
-) noexcept
-{
-    constexpr auto CheckFit = [](const auto &metrics, const auto textSize, const auto xFit, const auto size) {
-        return !xFit | (metrics.totalSize + size <= GetX(textSize));
-    };
-
-    LineMetrics elideMetrics;
-    LineMetrics metrics;
-    const auto tabMultiplier = params.text->spacesPerTab - 1;
-    const bool lastLine = (yOffset + params.lineHeight * 2) > (GetY(params.text->area.pos) + GetY(params.text->area.size));
-    const bool xFit = params.text->fit | params.text->elide;
-    const bool xElide = params.text->elide & (lastLine | !params.text->fit);
-    const auto elideSize = xElide * params.elideSize;
-    auto charCount = 0u;
-
-    for (auto it = from; true;) {
-        // Get next unicode character
-        const auto unicode = Core::Unicode::GetNextChar(it, to);
-        // End of text
-        if (!unicode)
+    // Positionate glyphs using parameter anchor & text alignment
+    for (auto lineBegin = glyphBegin; lineBegin != out; ) {
+        // Find last character of line
+        const auto lineIndex = int(GetY(lineBegin->pos)) / int(params.lineHeight);
+        auto lineEnd = lineBegin + 1;
+        while (lineEnd != out && lineIndex == int(GetY(lineEnd->pos)) / int(params.lineHeight))
+            ++lineEnd;
+        // Compute line width
+        const auto lastLineGlyph = lineEnd - 1;
+        const auto lineWidth = (GetX(lastLineGlyph->pos) + GetX(lastLineGlyph->uv.size)) - GetX(lineBegin->pos);
+        // Compute text alignment offset
+        Pixel alignmentOffset {};
+        switch (params.text->textAlignment) {
+        case TextAlignment::Left:
             break;
-        ++charCount;
-        // Glyph
-        if (!std::isspace(unicode)) {
-            const auto advance = params.getMetricsOf(unicode).advance;
-            if (CheckFit(metrics, params.text->area.size, xFit, advance + elideSize)) [[likely]] {
-                metrics.totalSize += advance;
-                metrics.totalGlyphSize += advance;
-            } else [[unlikely]] {
-                metrics.elided = xElide & params.text->elide;
-                break;
-            }
-        // Space
-        } else if (const bool isTab = unicode == '\t'; isTab | (unicode == ' ')) {
-            const auto spaceCount = 1.0f + tabMultiplier * static_cast<Pixel>(isTab);
-            const auto size = params.spaceWidth * spaceCount;
-            if (CheckFit(metrics, params.text->area.size, xFit, size + elideSize)) [[likely]] {
-                metrics.spaceCount += spaceCount;
-                metrics.totalSize += size;
-            } else [[unlikely]] {
-                metrics.elided = xElide & params.text->elide;
-                break;
-            }
-        // End of line
-        } else
+        case TextAlignment::Center:
+            alignmentOffset = (maxLineWidth - lineWidth) / 2.0f;
             break;
-    }
-
-    // Compute character count
-    metrics.charCount = charCount;
-    return metrics;
-}
-
-template<auto GetX, auto GetY>
-static UI::Pixel UI::ComputeLine(
-    Glyph *&out,
-    ComputeParameters &params,
-    std::string_view::iterator &it,
-    const std::string_view::iterator to,
-    const LineMetrics &metrics,
-    const Pixel yOffset
-) noexcept
-{
-    const auto spaceWidth = Core::BranchlessIf(
-        params.text->textAlignment == TextAlignment::Justify,
-        metrics.spaceCount ? (GetX(params.text->area.size) - metrics.totalGlyphSize) / metrics.spaceCount : 0.0f,
-        params.spaceWidth
-    );
-    const auto tabMultiplier = params.text->spacesPerTab - 1;
-    Point pos {};
-    GetY(pos) = yOffset;
-
-    // Insert glyphs
-    const auto insertGlyph = [
-        &out,
-        &pos,
-        &params,
-        color = params.text->color,
-        rotationAngle = params.text->rotationAngle,
-        vertical = params.text->vertical
-    ](const auto &metrics) {
-        auto glyphPos = pos;
-        GetX(glyphPos) += metrics.bearing.x;
-        GetY(glyphPos) += !vertical
-            ? params.ascender - metrics.bearing.y
-            : -params.descender - (metrics.uv.size.height - metrics.bearing.y);
-        new (out++) Glyph {
-            .uv = metrics.uv,
-            .pos = glyphPos,
-            .spriteIndex = params.spriteIndex,
-            .color = color,
-            .rotationAngle = rotationAngle,
-            .vertical = float(vertical),
-        };
-        GetX(pos) += metrics.advance;
-    };
-    for (auto count = 0u; count != metrics.charCount; ++count) {
-        // Get next unicode character
-        const auto unicode = Core::Unicode::GetNextChar(it, to);
-        // End of text
-        if (!unicode)
+        case TextAlignment::Right:
+            alignmentOffset = maxLineWidth - lineWidth;
             break;
-        // Glyph
-        else if (!std::isspace(unicode)) {
-            const auto &metrics = params.getMetricsOf(unicode);
-            insertGlyph(metrics);
-        // Space
-        } else if (const bool isTab = unicode == '\t'; isTab | (unicode == ' ')) {
-            const auto spaceCount = 1.0f + tabMultiplier * static_cast<Pixel>(isTab);
-            GetX(pos) += spaceWidth * spaceCount;
-        } else
+        case TextAlignment::Justify:
+            kFAbort("[UI Text Processor] Justify text alignment not implemented");
             break;
-    }
-
-    if (metrics.elided) [[unlikely]] {
-        const auto &metrics = params.getMetricsOf('.');
-        for (auto i = 0u; i != ElideDotCount; ++i)
-            insertGlyph(metrics);
-    }
-    return GetX(pos);
-}
-
-template<auto GetX, auto GetY>
-static void UI::ComputeGlyphPositions(
-    Glyph * const from,
-    Glyph * const to,
-    const ComputeParameters &params,
-    const Size metrics
-) noexcept
-{
-    // Compute global offset
-    Point offset {};
-    switch (params.text->anchor) {
-    case Anchor::TopLeft:
-        break;
-    case Anchor::Top:
-        offset = Point {
-            .x = params.text->area.size.width / 2.0f - metrics.width / 2.0f,
-            .y = 0.0f
-        };
-        break;
-    case Anchor::TopRight:
-        offset = Point {
-            .x = params.text->area.size.width - metrics.width,
-            .y = 0.0f
-        };
-        break;
-    case Anchor::Left:
-        offset = Point {
-            .x = 0.0f,
-            .y = params.text->area.size.height / 2.0f - metrics.height / 2.0f
-        };
-        break;
-    case Anchor::Center:
-        offset = (params.text->area.size / 2.0f - metrics / 2.0f).toPoint();
-        break;
-    case Anchor::Right:
-        offset = Point {
-            .x = params.text->area.size.width - metrics.width,
-            .y = params.text->area.size.height / 2.0f - metrics.height / 2.0f
-        };
-        break;
-    case Anchor::BottomLeft:
-        offset = Point {
-            .x = 0.0f,
-            .y = params.text->area.size.height - metrics.height
-        };
-        break;
-    case Anchor::Bottom:
-        offset = Point {
-            .x = params.text->area.size.width / 2.0f - metrics.width / 2.0f,
-            .y = params.text->area.size.height - metrics.height
-        };
-        break;
-    case Anchor::BottomRight:
-        offset = Point {
-            .x = params.text->area.size.width - metrics.width,
-            .y = params.text->area.size.height - metrics.height
-        };
-        break;
-    }
-
-    // Apply offsets
-    offset = Point {
-        .x = std::round(offset.x + params.text->area.pos.x),
-        .y = std::round(offset.y + params.text->area.pos.y),
-    };
-    ApplyGlyphOffsets<GetX, GetY>(from, to, params, metrics, offset);
-}
-
-template<auto GetX, auto GetY>
-static void UI::ApplyGlyphOffsets(Glyph * const from, Glyph * const to, const ComputeParameters &params, const Size metrics, const Point offset) noexcept
-{
-    constexpr auto ApplyOffsets = [](Glyph * const from, Glyph * const to, const ComputeParameters &params, const Size metrics, const Point offset, const Point rotationOrigin, auto &&computeFunc) {
-        auto lineMetricsIt = params.linesMetrics.begin();
-        auto currentOffset = computeFunc(offset, metrics, lineMetricsIt->width);
-        auto nextLineIt = from + std::uint32_t(lineMetricsIt->charCount - std::uint32_t(lineMetricsIt->spaceCount));
-        for (auto it = from; it != to; ++it) {
-            if (it == nextLineIt) [[unlikely]] {
-                nextLineIt = from + lineMetricsIt->charCount - std::uint32_t(lineMetricsIt->spaceCount);
-                ++lineMetricsIt;
-                currentOffset = computeFunc(offset, metrics, lineMetricsIt->width);
-            }
-            it->pos += currentOffset;
-            it->rotationOrigin = rotationOrigin;
         }
-    };
-
-    const Point rotationOrigin = offset + metrics / 2.0f;
-    switch (params.text->textAlignment) {
-    case TextAlignment::Left:
-    case TextAlignment::Justify:
-        for (auto it = from; it != to; ++it) {
-            it->pos += offset;
-            it->rotationOrigin = rotationOrigin;
+        // Move text by anchored area offset and text alignment offset
+        for (; lineBegin != lineEnd; ++lineBegin) {
+            lineBegin->pos += area.pos;
+            GetX(lineBegin->pos) += alignmentOffset;
+            lineBegin->rotationOrigin = rotationOrigin;
         }
-        break;
-    case TextAlignment::Center:
-        ApplyOffsets(from, to, params, metrics, offset, rotationOrigin,
-            [](const Point offset, const Size metrics, const Pixel lineWidth) {
-                Point point {};
-                GetX(point) = GetX(metrics) / 2.0f - lineWidth / 2.0f;
-                return offset + point;
-            }
-        );
-        break;
-    case TextAlignment::Right:
-        ApplyOffsets(from, to, params, metrics, offset, rotationOrigin,
-            [](const Point offset, const Size metrics, const Pixel lineWidth) {
-                Point point {};
-                GetX(point) = GetX(metrics) - lineWidth;
-                return offset + point;
-            }
-        );
-        break;
     }
 }
