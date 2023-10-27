@@ -30,6 +30,9 @@ namespace kF::UI
 
     /** @brief Default number of spaces per tab */
     constexpr Pixel DefaultSpacesPerTab = 4.0f;
+
+    /** @brief Null font */
+    constexpr FontIndex NullFontIndex { .value = ~static_cast<FontIndex::IndexType>(0) };
 }
 
 /** @brief Font class manager the lifecycle of a Font */
@@ -59,14 +62,18 @@ public:
     Font &operator=(Font &&other) noexcept;
 
 
+    /** @brief Get parent font manager */
+    [[nodiscard]] inline FontManager &parent(void) const noexcept { return *_manager; }
+
+
+    /** @brief Check if the sprite is valid */
+    [[nodiscard]] inline bool isValid(void) const noexcept { return _index != NullSpriteIndex; }
+
     /** @brief Implicit conversion to FontIndex */
     [[nodiscard]] inline operator FontIndex(void) const noexcept { return _index; }
 
     /** @brief Get index */
     [[nodiscard]] inline FontIndex index(void) const noexcept { return _index; }
-
-    /** @brief Get parent font manager */
-    [[nodiscard]] inline FontManager &parent(void) const noexcept { return *_manager; }
 
 
     /** @brief Get space width of a font instance */
@@ -86,7 +93,7 @@ public:
 
 private:
     FontManager *_manager {};
-    FontIndex _index {};
+    FontIndex _index { NullFontIndex };
 };
 static_assert_fit_quarter_cacheline(kF::UI::Font);
 

@@ -53,6 +53,11 @@ public:
     /** @brief Move assignment */
     Sprite &operator=(Sprite &&other) noexcept;
 
+
+    /** @brief Get parent sprite manager */
+    [[nodiscard]] inline SpriteManager &parent(void) const noexcept { return *_manager; }
+
+
     /** @brief Check if the sprite is valid */
     [[nodiscard]] inline bool isValid(void) const noexcept { return _index != NullSpriteIndex; }
 
