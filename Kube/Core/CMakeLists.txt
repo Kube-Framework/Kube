@@ -13,6 +13,8 @@ kube_add_library(Core
         AllocatorUtils.hpp
         AllocatorUtils.ipp
         Assert.hpp
+        Benchmark.cpp
+        Benchmark.hpp
         Debug.hpp
         DebugAllocator.hpp
         Dispatcher.hpp

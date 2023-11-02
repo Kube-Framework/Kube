@@ -136,7 +136,7 @@ void ECS::Executor::observePipelines(void) noexcept
     const std::int64_t elapsed = now - _cache.lastTick;
     std::int64_t next = INT64_MAX;
 
-    // kFInfo("Observe pipelines ", elapsed);
+    // kFInfo("[ECS Executor] Observe pipelines ", elapsed);
     // Iterate over each pipeline clock
     for (PipelineIndex pipelineIndex = 0; auto &clock : _pipelines.clocks) {
         const auto tickRate = clock.tickRate(); // @todo fix this datarace when clock frequency changes at runtime (mutex / atomic)
@@ -146,7 +146,7 @@ void ECS::Executor::observePipelines(void) noexcept
         if (clock.elapsed >= tickRate) [[unlikely]] {
             // If the graph is not being executed, schedule it
             if (auto &graph = *_pipelines.graphs.at(pipelineIndex); !graph.running()) [[likely]] {
-                // kFInfo("  Tick '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
+                // kFInfo("[ECS Executor] | Tick '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
                 if (isTimeBound)
                     clock.elapsed -= tickRate;
                 else
@@ -156,12 +156,12 @@ void ECS::Executor::observePipelines(void) noexcept
                 next = std::min(next, now + tickRate);
             // Else we must schedule the graph as soon as it finishes execution
             } else {
-                // kFInfo("  Busy '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
+                // kFInfo("[ECS Executor] | Busy '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
                 next = now;
             }
         // The pipeline have time before schedule
         } else {
-            // kFInfo("  Wait '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
+            // kFInfo("[ECS Executor] | Wait '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
             next = std::min(next, now + tickRate - clock.elapsed);
         }
         ++pipelineIndex;
@@ -180,7 +180,7 @@ void ECS::Executor::waitPipelines(void) noexcept
         return;
 
     // Sleep wait
-    // kFInfo("Sleeping for ", seconds * 1e3, " ms (", _cache.sleepEstimate * 1e3, ")");
+    // kFInfo("[ECS Executor] Sleeping for ", seconds * 1e3, " ms (", _cache.sleepEstimate * 1e3, ")");
     while (seconds > _cache.sleepEstimate) {
         // Sleep for 1ms
         auto start = std::chrono::high_resolution_clock::now();
@@ -190,7 +190,7 @@ void ECS::Executor::waitPipelines(void) noexcept
 
         // Observe real slept time
         const auto observed = static_cast<double>((end - start).count()) / 1e9;
-        // kFInfo("  Slept for ", observed * 1e3, " / ", seconds * 1e3, " ms (", _cache.sleepEstimate * 1e3, ")");
+        // kFInfo("[ECS Executor] | Slept for ", observed * 1e3, " / ", seconds * 1e3, " ms (", _cache.sleepEstimate * 1e3, ")");
         seconds -= observed;
 
         // Update estimate accurate sleep time
