@@ -189,10 +189,10 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
     bool lastLine = IsLastLine(params, offset);
 
     // Loop through every character and produce glyphs
-    while (from != to) {
+    while (true) {
         const auto unicode = Core::Unicode::GetNextChar(from, to);
         if (!unicode) [[unlikely]] {
-            continue;
+            break;
         } else if (std::isspace(unicode)) {
             // Line break
             if (unicode == '\n') {
@@ -227,7 +227,7 @@ static void UI::ComputeGlyph(Glyph *&out, ComputeParameters &params) noexcept
                         InsertGlyph(out, params, offset, dotMetrics);
                     break;
                 // Fit the text on each line
-                } else if (params.text->fit & !lastLine) {
+                } else if (params.text->fit & (!params.text->elide | !lastLine)) {
                     out = lastWordGlyph;
                     from = lastWordChar;
                     BreakLine(params, offset, maxLineWidth, lastLine, consecutiveSpaces);

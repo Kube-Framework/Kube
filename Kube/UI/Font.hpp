@@ -84,7 +84,7 @@ public:
 
 
     /** @brief Compute text metrics using internal font */
-    [[nodiscard]] Size computeTextMetrics(const std::string_view &text, const Pixel spacesPerTab = DefaultSpacesPerTab) const noexcept;
+    [[nodiscard]] Size computeTextMetrics(const std::string_view &text, const Pixel fitWidth = {}, const Pixel spacesPerTab = DefaultSpacesPerTab) const noexcept;
 
 
     /** @brief Comparison operators */

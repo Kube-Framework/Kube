@@ -240,37 +240,80 @@ void UI::FontManager::decrementRefCount(const FontIndex fontIndex) noexcept
     _fontFreeList.push(fontIndex);
 }
 
-UI::Size UI::FontManager::computeTextMetrics(const FontIndex fontIndex, const std::string_view &text, const Pixel spacesPerTab_) const noexcept
+UI::Size UI::FontManager::computeTextMetrics(const FontIndex fontIndex, const std::string_view &text, const Pixel fitWidth, const Pixel spacesPerTab, const bool vertical) const noexcept
 {
-    constexpr auto UpdateMetrics = [](UI::Size &metrics, const UI::Point pen) {
-        metrics.width = std::max(metrics.width, pen.x);
-        metrics.height = std::max(metrics.height, pen.y);
+    if (!vertical)
+        return computeTextMetrics<GetXAxis, GetYAxis>(fontIndex, text, fitWidth, spacesPerTab);
+    else
+        return computeTextMetrics<GetYAxis, GetXAxis>(fontIndex, text, fitWidth, spacesPerTab);
+}
+
+template<auto GetX, auto GetY>
+UI::Size UI::FontManager::computeTextMetrics(const FontIndex fontIndex, const std::string_view &text, const Pixel fitWidth, const Pixel spacesPerTab) const noexcept
+{
+    // Return null metrics if the text is empty
+    if (text.empty())
+        return UI::Size {};
+
+    // Some utility functions
+    constexpr auto BreakLine = [](const auto lineHeight, auto &offset, auto &maxLineWidth, auto &consecutiveSpaces) {
+        maxLineWidth = std::max(GetX(offset), maxLineWidth);
+        GetX(offset) = {};
+        GetY(offset) += lineHeight;
+        consecutiveSpaces = {};
     };
+
+    // Compute metrics
     const auto &glyphsMetrics = glyphsMetricsAt(fontIndex);
     const auto &glyphIndexSet = glyphIndexSetAt(fontIndex);
     const auto lineHeight = lineHeightAt(fontIndex);
     const auto spaceWidth = spaceWidthAt(fontIndex);
-    const auto spacesPerTab = spacesPerTab_ - 1.0f;
-    Size metrics {};
-    Point pen {};
-
+    // Last word cache
+    auto lastWordChar = text.begin();
+    // String cache
     auto from = text.begin();
     const auto to = text.end();
+    // Position cache
+    Point offset {};
+    Pixel consecutiveSpaces {};
+    Pixel maxLineWidth {};
+
+    // Loop through every character and produce glyphs
     while (true) {
         const auto unicode = Core::Unicode::GetNextChar(from, to);
-        if (!unicode) {
+        if (!unicode) [[unlikely]] {
             break;
-        } else if (!std::isspace(unicode)) {
-            pen.x += GetMetricsOf(glyphIndexSet, glyphsMetrics, unicode).advance;
-        } else if (const bool isTab = unicode == '\t'; isTab | (unicode == ' ')) {
-            pen.x += spaceWidth * (1.0f + spacesPerTab * isTab);
-        } else {
-            pen.x = {};
-            pen.y += lineHeight;
+        } else if (std::isspace(unicode)) {
+            // Line break
+            if (unicode == '\n') {
+                BreakLine(lineHeight, offset, maxLineWidth, consecutiveSpaces);
+            // Regular or tab space
+            } else
+                consecutiveSpaces += unicode == ' ' ? 1.0f : spacesPerTab;
+            // Save new head as last word begin
+            lastWordChar = from;
+        } else [[likely]] {
+            // Query glyph metrics
+            const auto &metrics = GetMetricsOf(glyphIndexSet, glyphsMetrics, unicode);
+            // Compute next offset considering previous consecutive spaces
+            const auto nextXOffset = GetX(offset) + consecutiveSpaces * spaceWidth + metrics.advance;
+            // The glyph is out of line width, fit the text on each line
+            if (bool(fitWidth) & (nextXOffset > fitWidth)) {
+                from = lastWordChar;
+                BreakLine(lineHeight, offset, maxLineWidth, consecutiveSpaces);
+                continue;
+            }
+            // Apply next offset
+            GetX(offset) = nextXOffset;
+            consecutiveSpaces = {};
         }
-        UpdateMetrics(metrics, pen);
     }
-    pen.y += lineHeight * !text.empty();
-    UpdateMetrics(metrics, pen);
+    // Break final line
+    BreakLine(lineHeight, offset, maxLineWidth, consecutiveSpaces);
+
+    // Return metrics
+    UI::Size metrics {};
+    GetX(metrics) = std::max(fitWidth, maxLineWidth);
+    GetY(metrics) = GetY(offset);
     return metrics;
 }

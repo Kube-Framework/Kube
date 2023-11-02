@@ -132,12 +132,22 @@ public: // Unsafe functions reserved for internal usage
 
 
     /** @brief Compute text metrics using a given font */
-    [[nodiscard]] UI::Size computeTextMetrics(const FontIndex fontIndex, const std::string_view &text, const Pixel spacesPerTab = DefaultSpacesPerTab) const noexcept;
+    [[nodiscard]] UI::Size computeTextMetrics(
+        const FontIndex fontIndex,
+        const std::string_view &text,
+        const Pixel fitWidth = {},
+        const Pixel spacesPerTab = DefaultSpacesPerTab,
+        const bool vertical = false
+    ) const noexcept;
 
 private:
     /** @brief Load a font from 'path' that is stored at 'fontIndex' */
     void load(const std::string_view &path, const FontIndex fontIndex) noexcept;
 
+
+    /** @brief Compute text metrics using a given font */
+    template<auto GetX, auto GetY>
+    [[nodiscard]] UI::Size computeTextMetrics(const FontIndex fontIndex, const std::string_view &text, const Pixel fitWidth, const Pixel spacesPerTab) const noexcept;
 
     /** @brief Generate a unique font name from a path and a model */
     [[nodiscard]] inline Core::HashedName GenerateFontName(const std::string_view &path, const FontModel &model) noexcept

@@ -40,7 +40,7 @@ UI::Pixel UI::Font::lineHeight(void) const noexcept
     return _manager->lineHeightAt(_index);
 }
 
-UI::Size UI::Font::computeTextMetrics(const std::string_view &text, const Pixel spacesPerTab) const noexcept
+UI::Size UI::Font::computeTextMetrics(const std::string_view &text, const Pixel fitWidth, const Pixel spacesPerTab) const noexcept
 {
-    return _manager->computeTextMetrics(_index, text, spacesPerTab);
+    return _manager->computeTextMetrics(_index, text, fitWidth, spacesPerTab);
 }
