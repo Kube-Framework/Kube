@@ -26,7 +26,7 @@ public:
     inline Benchmark(Benchmark &&other) noexcept { swap(other); }
 
     /** @brief Move assignment */
-    inline Benchmark &operator=(Benchmark &&other) noexcept { swap(other); }
+    inline Benchmark &operator=(Benchmark &&other) noexcept { swap(other); return *this; }
 
     /** @brief Swap two instances */
     inline void swap(Benchmark &other) noexcept { std::swap(_name, other._name); std::swap(_beginTimestamp, other._beginTimestamp); std::swap(_lastStepTimestamp, other._lastStepTimestamp); }
