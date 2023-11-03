@@ -309,6 +309,7 @@ UI::Size UI::FontManager::computeTextMetrics(const FontIndex fontIndex, const st
         }
     }
     // Break final line
+    GetX(offset) += consecutiveSpaces * spaceWidth;
     BreakLine(lineHeight, offset, maxLineWidth, consecutiveSpaces);
 
     // Return metrics
