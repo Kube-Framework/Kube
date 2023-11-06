@@ -40,6 +40,7 @@ Flow::Scheduler::Scheduler(const std::size_t workerCount, const std::size_t task
         });
         ++workerIndex;
     }
+    kFInfo("[Scheduler] ", count, " threads running with a task queue size of ", taskQueueSize);
 }
 
 void Flow::Scheduler::schedule(Graph &graph) noexcept
