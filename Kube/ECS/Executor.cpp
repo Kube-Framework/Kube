@@ -14,8 +14,6 @@
 
 using namespace kF;
 
-static void PreciseSleep(const std::int64_t nanoseconds) noexcept;
-
 ECS::Executor *ECS::Executor::_Instance {};
 
 ECS::Executor::~Executor(void) noexcept
@@ -173,38 +171,26 @@ void ECS::Executor::observePipelines(void) noexcept
 void ECS::Executor::waitPipelines(void) noexcept
 {
     const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    auto seconds = static_cast<double>(_cache.nextTick - now) / 1e9;
+    const std::int64_t nanoseconds = _cache.nextTick - now;
 
-    // If we are late, no time to loose
-    if (seconds <= 0.0)
+    // We are late !
+    if (nanoseconds <= 0) {
+        // if (nanoseconds < -100'000)
+        //     kFInfo("[ECS Executor] Late by ", -nanoseconds / 1e6, "ms");
         return;
-
-    // Sleep wait
-    // kFInfo("[ECS Executor] Sleeping for ", seconds * 1e3, " ms (", _cache.sleepEstimate * 1e3, ")");
-    while (seconds > _cache.sleepEstimate) {
-        // Sleep for 1ms
-        auto start = std::chrono::high_resolution_clock::now();
-        PreciseSleep(1'000'000);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        auto end = std::chrono::high_resolution_clock::now();
-
-        // Observe real slept time
-        const auto observed = static_cast<double>((end - start).count()) / 1e9;
-        // kFInfo("[ECS Executor] | Slept for ", observed * 1e3, " / ", seconds * 1e3, " ms (", _cache.sleepEstimate * 1e3, ")");
-        seconds -= observed;
-
-        // Update estimate accurate sleep time
-        ++_cache.sleepCount;
-        double delta = observed - _cache.sleepMean;
-        _cache.sleepMean += delta / static_cast<double>(_cache.sleepCount);
-        _cache.sleepM2   += delta * (observed - _cache.sleepMean);
-        double stddev = std::sqrt(_cache.sleepM2 / static_cast<double>(_cache.sleepCount - 1));
-        _cache.sleepEstimate = _cache.sleepMean + stddev;
-    }
-
+    // Sleep for the whole duration if we have enough time to sleep
+    } else if (nanoseconds > 500'000) {
+        const auto sleep = nanoseconds;
+        Flow::PreciseSleep(sleep);
+        // const auto end = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        // const auto observed = end - now;
+        // if (end > _cache.nextTick + 100'000)
+        //     kFInfo("[ECS Executor] Oversleep ", observed / 1e6, " / ", sleep / 1e6, "ms ", (double(observed) / double(sleep)) * 100.0, "%");
     // Spin wait
-    while (std::chrono::high_resolution_clock::now().time_since_epoch().count() < _cache.nextTick)
-        std::this_thread::yield();
+    } else {
+        while (std::chrono::high_resolution_clock::now().time_since_epoch().count() < _cache.nextTick)
+            std::this_thread::yield();
+    }
 }
 
 void ECS::Executor::buildPipelineGraphs(void) noexcept
@@ -262,45 +248,6 @@ void ECS::Executor::buildPipelineGraph(const PipelineIndex pipelineIndex) noexce
         prevGraphTask = &graphTask;
     }
 }
-
-#if KUBE_PLATFORM_WINDOWS
-#include <Windows.h>
-struct WindowsTimer
-{
-    HANDLE handle;
-
-    WindowsTimer(void) noexcept
-    {
-        handle = CreateWaitableTimer(NULL, FALSE, NULL);
-        kFEnsure(handle,
-            "ECS::Executor::PreciseSleep: Couldn't create windows timer handle");
-    }
-
-    ~WindowsTimer(void) noexcept { CloseHandle(handle); }
-};
-
-static void PreciseSleep(const std::int64_t nanoseconds) noexcept
-{
-    static WindowsTimer WindowsTimer {};
-
-    // Setup timer & wait
-    LARGE_INTEGER timeDef;
-    timeDef.QuadPart = -nanoseconds / 100;
-    if (SetWaitableTimer(WindowsTimer.handle, &timeDef, 0, nullptr, nullptr, false)) [[likely]]
-        WaitForSingleObject(WindowsTimer.handle, INFINITE);
-}
-#else
-#include <time.h>
-static void PreciseSleep(const std::int64_t nanoseconds) noexcept
-{
-    const struct timespec spec {
-        .tv_sec = time_t {},
-        .tv_nsec = nanoseconds
-    };
-    struct timespec rem {};
-    nanosleep(&spec, &rem);
-}
-#endif
 
 void ECS::Executor::waitIdle(void) noexcept
 {

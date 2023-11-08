@@ -1,5 +1,6 @@
 kube_add_library(Flow
     SOURCES
+        Base.cpp
         Base.hpp
         Graph.cpp
         Graph.hpp

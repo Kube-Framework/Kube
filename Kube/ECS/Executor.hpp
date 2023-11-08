@@ -145,10 +145,6 @@ public:
         bool running { false };
         std::int64_t lastTick {};
         std::int64_t nextTick {};
-        double sleepEstimate { 5e-3 };
-        double sleepMean { 5e-3 };
-        double sleepM2 { 0 };
-        std::int64_t sleepCount { 1 };
     };
     static_assert_fit_double_cacheline(Cache);
 

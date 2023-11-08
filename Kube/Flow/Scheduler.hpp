@@ -6,7 +6,8 @@
 #pragma once
 
 #include <semaphore>
-#include <future>
+// #include <mutex>
+// #include <condition_variable>
 #include <thread>
 
 #include <Kube/Core/SmallVector.hpp>
@@ -119,9 +120,11 @@ private:
     /** @brief Put worker onto sleep until notified (must be called from a worker thread) */
     void sleepWorker(void) noexcept;
 
-
     /** @brief Wake up a single worker (can be called on any thread) */
     void notifyWorker(void) noexcept;
+
+    /** @brief Wake up a all workers (can be called on any thread) */
+    void notifyAllWorkers(void) noexcept;
 
 
     // Cacheline 0 -> 3
@@ -135,13 +138,15 @@ private:
     alignas_double_cacheline std::atomic_bool _running { true };
 
     // Cacheline 8 & 9
+    // std::mutex _mutex {};
+    // std::condition_variable _notifier {};
     alignas_double_cacheline std::counting_semaphore<> _notifier { 0 };
 
     // Cacheline 10 & 11
-    alignas_double_cacheline std::atomic_size_t _activeWorkerCount { 0 };
+    alignas_double_cacheline std::atomic_size_t _activeWorkerCount {};
 
     // Cacheline 12 & 13
-    alignas_double_cacheline std::atomic_size_t _stealWorkerCount { 0 };
+    alignas_double_cacheline std::atomic_size_t _stealWorkerCount {};
 };
 
 static_assert_alignof_double_cacheline(kF::Flow::Scheduler);

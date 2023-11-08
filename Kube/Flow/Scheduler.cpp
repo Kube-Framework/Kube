@@ -3,19 +3,22 @@
  * @ Description: Flow Scheduler
  */
 
+#include "Scheduler.hpp"
+#include "Graph.hpp"
 
 #include <Kube/Core/Abort.hpp>
 #include <Kube/Core/Random.hpp>
 
-#include "Scheduler.hpp"
-#include "Graph.hpp"
+#if KUBE_PLATFORM_WINDOWS
+# include <Windows.h>
+#endif
 
 using namespace kF;
 
 Flow::Scheduler::~Scheduler(void) noexcept
 {
     _running.store(false, std::memory_order_relaxed);
-    _notifier.release(static_cast<ptrdiff_t>(workerCount())); // Release all sleeping workers (Scheduler enter into non-reusable state)
+    notifyAllWorkers();
     for (auto &thd : _threads)
         thd.join();
 }
@@ -74,8 +77,7 @@ void Flow::Scheduler::runWorker(const std::uint32_t workerIndex) noexcept
         // If a task is found, start execution
         if (cache.task != nullptr) [[likely]] {
             // Set this worker in active mode and notify if this is the only one running
-            if (_activeWorkerCount.fetch_add(1, std::memory_order_acq_rel) == 0
-                    && _stealWorkerCount.load(std::memory_order_acquire) == 0) [[unlikely]]
+            if (_activeWorkerCount.fetch_add(1, std::memory_order_acq_rel) == 0 && _stealWorkerCount.load(std::memory_order_acquire) == 0) [[unlikely]]
                 notifyWorker();
             // Execute worker queue
             executeWorkerQueue(cache);
@@ -267,8 +269,7 @@ bool Flow::Scheduler::waitWorkerTask(WorkerCache &cache) noexcept
         }
 
         // Leave steal mode, if there are no other thief but still active workers, prevent sleeping
-        if (_stealWorkerCount.fetch_sub(1, std::memory_order_acq_rel) == 1
-                && _activeWorkerCount.load(std::memory_order_acquire) > 0)
+        if (_stealWorkerCount.fetch_sub(1, std::memory_order_acq_rel) == 1 && _activeWorkerCount.load(std::memory_order_acquire) > 0)
             continue;
         else
             break;
@@ -317,10 +318,19 @@ bool Flow::Scheduler::stealWorkerTask(WorkerCache &cache) noexcept
 
 void Flow::Scheduler::sleepWorker(void) noexcept
 {
+    // std::unique_lock lock(_mutex);
+    // _notifier.wait(lock);
     _notifier.acquire();
 }
 
 void Flow::Scheduler::notifyWorker(void) noexcept
 {
+    // _notifier.notify_one();
     _notifier.release();
+}
+
+void Flow::Scheduler::notifyAllWorkers(void) noexcept
+{
+    // _notifier.notify_all();
+    _notifier.release(static_cast<ptrdiff_t>(workerCount())); // Release all sleeping workers (Scheduler enter into non-reusable state)
 }

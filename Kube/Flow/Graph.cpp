@@ -3,7 +3,6 @@
  * @ Description: Flow graph
  */
 
-#include <chrono>
 #include <thread>
 
 #include <Kube/Core/Abort.hpp>
@@ -73,11 +72,8 @@ void Flow::Graph::invalidateScheduleCacheImpl(void) noexcept
 
 void Flow::Graph::waitSleep(const std::int64_t sleepNs) noexcept
 {
-    using namespace std::chrono;
-
-    while (_activeTaskCount.load(std::memory_order_acquire)) {
-        std::this_thread::sleep_for(nanoseconds(sleepNs));
-    }
+    while (_activeTaskCount.load(std::memory_order_acquire))
+        Flow::PreciseSleep(sleepNs);
 }
 
 void Flow::Graph::waitSpin(void) noexcept
