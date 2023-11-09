@@ -61,7 +61,7 @@ class alignas_double_cacheline kF::ECS::Executor
 {
 public:
     /** @brief Executor event */
-    using ExecutorEvent = Core::TrivialFunctor<bool(void)>;
+    using ExecutorEvent = Core::TrivialFunctor<bool(void), 24>;
 
     /** @brief Pipeline begin pass (if returns false, the whole pipeline is ignored) */
     using PipelineBeginPass = Core::TrivialFunctor<bool(void)>;

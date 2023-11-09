@@ -26,7 +26,8 @@ ECS::Executor::~Executor(void) noexcept
 }
 
 ECS::Executor::Executor(const std::size_t workerCount, const std::size_t taskQueueSize, const std::size_t eventQueueSize) noexcept
-    : _scheduler(workerCount, taskQueueSize), _eventQueue(eventQueueSize, false)
+    : _scheduler(workerCount, taskQueueSize)
+    , _eventQueue(eventQueueSize, false)
 {
     kFEnsure(!_Instance,
         "ECS::Executor: Executor can only be instantiated once");
@@ -70,12 +71,17 @@ Core::Expected<ECS::PipelineIndex> ECS::Executor::getSystemIndex(const PipelineI
 void ECS::Executor::setPipelineTickRate(const PipelineIndex pipelineIndex, const std::int64_t frequencyHz) noexcept
 {
     kFEnsure(frequencyHz >= 0, "ECS::Executor::addPipeline: Pipeline only support frequency in range [0, inf[");
-    _pipelines.clocks.at(pipelineIndex).setTickRate(HzToRate(frequencyHz));
+    ExecutorEvent event([this, pipelineIndex, frequencyHz = std::int32_t(frequencyHz)] {
+        _pipelines.clocks.at(pipelineIndex).setTickRate(HzToRate(std::int64_t(frequencyHz)));
+        return true;
+    });
+    while (!_eventQueue.push<true>(event))
+        std::this_thread::yield();
 }
 
 void ECS::Executor::stop(void) noexcept
 {
-    const auto res = _eventQueue.push([this] {
+    ExecutorEvent event([this] {
         // Wait all pipelines to stop
         waitIdle();
         // Exhaust pipeline events before closing
@@ -86,7 +92,8 @@ void ECS::Executor::stop(void) noexcept
         }
         return false;
     });
-    kFEnsure(res, "ECS::Executor::stop: Critical event couldn't not get received");
+    while (!_eventQueue.push<true>(event))
+        std::this_thread::yield();
 }
 
 void ECS::Executor::run(void) noexcept
@@ -170,25 +177,21 @@ void ECS::Executor::observePipelines(void) noexcept
 
 void ECS::Executor::waitPipelines(void) noexcept
 {
-    const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    const std::int64_t nanoseconds = _cache.nextTick - now;
-
-    // We are late !
-    if (nanoseconds <= 0) {
-        // if (nanoseconds < -100'000)
-        //     kFInfo("[ECS Executor] Late by ", -nanoseconds / 1e6, "ms");
-        return;
-    // Sleep for the whole duration if we have enough time to sleep
-    } else if (nanoseconds > 500'000) {
-        const auto sleep = nanoseconds;
-        Flow::PreciseSleep(sleep);
-        // const auto end = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-        // const auto observed = end - now;
-        // if (end > _cache.nextTick + 100'000)
-        //     kFInfo("[ECS Executor] Oversleep ", observed / 1e6, " / ", sleep / 1e6, "ms ", (double(observed) / double(sleep)) * 100.0, "%");
-    // Spin wait
-    } else {
-        while (std::chrono::high_resolution_clock::now().time_since_epoch().count() < _cache.nextTick)
+    while (true) {
+        const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        const std::int64_t nanoseconds = _cache.nextTick - now;
+        // Don't sleep, we are late
+        if (nanoseconds <= 0)
+            break;
+        // Sleep for the whole duration if we have enough time to sleep
+        else if (nanoseconds > 500'000) {
+            Flow::PreciseSleep(nanoseconds);
+            // const auto end = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            // const auto observed = end - now;
+            // if (end > _cache.nextTick + 100'000)
+            //     kFInfo("[ECS Executor] Oversleep ", observed / 1e6, " / ", nanoseconds / 1e6, "ms ", (double(observed) / double(nanoseconds)) * 100.0, "%");
+        // Spin wait
+        } else
             std::this_thread::yield();
     }
 }

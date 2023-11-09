@@ -15,14 +15,16 @@ struct WindowsTimer
 {
     HANDLE handle;
 
+    /** @brief Destructor */
+    ~WindowsTimer(void) noexcept { CloseHandle(handle); }
+
+    /** @brief Constructor */
     WindowsTimer(void) noexcept
     {
         handle = CreateWaitableTimer(NULL, FALSE, NULL);
         kFEnsure(handle,
             "ECS::Executor::PreciseSleep: Couldn't create windows timer handle");
     }
-
-    ~WindowsTimer(void) noexcept { CloseHandle(handle); }
 };
 
 void Flow::PreciseSleep(const std::int64_t nanoseconds) noexcept
