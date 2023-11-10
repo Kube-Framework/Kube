@@ -4,6 +4,7 @@
  */
 
 #include <chrono>
+#include <iomanip>
 
 #include "Benchmark.hpp"
 
