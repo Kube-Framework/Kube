@@ -255,5 +255,5 @@ void ECS::Executor::buildPipelineGraph(const PipelineIndex pipelineIndex) noexce
 void ECS::Executor::waitIdle(void) noexcept
 {
     for (auto &graph : _pipelines.graphs)
-        graph->waitSpin();
+        graph->wait();
 }
