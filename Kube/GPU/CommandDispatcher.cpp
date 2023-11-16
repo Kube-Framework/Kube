@@ -32,6 +32,7 @@ void GPU::CommandDispatcher::dispatch(const QueueType queueType,
 
 bool GPU::CommandDispatcher::tryAcquireNextFrame(void) noexcept
 {
+    constexpr std::uint64_t WaitDuration = 0; //100'000'000;
     constexpr auto UnrollClear = []<typename Type, std::size_t ...Indexes>(Type * const data, std::index_sequence<Indexes...>) {
         (... , data[Indexes].clear());
     };
@@ -47,11 +48,11 @@ bool GPU::CommandDispatcher::tryAcquireNextFrame(void) noexcept
     _availableSemaphores.pop();
 
     // Try to retreive the next frame handle
-    std::uint32_t retreivedFrame;
+    std::uint32_t retreivedFrame {};
     auto res = ::vkAcquireNextImageKHR(
         parent().logicalDevice(),
         parent().swapchain(),
-        0, // Do not wait
+        WaitDuration, // Timeout
         semaphore,
         NullHandle, // No fence
         &retreivedFrame
@@ -59,6 +60,7 @@ bool GPU::CommandDispatcher::tryAcquireNextFrame(void) noexcept
 
     // Driver indicated that swapchain is either suboptimal or invalid
     if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR) {
+        kFInfo("[Command Dispatcher] ", std::string_view(res == VK_SUBOPTIMAL_KHR ? "SUBOPTIMAL" : "OUT_OF_DATE"));
         // Cleanup dirty semaphore
         if (res == VK_SUBOPTIMAL_KHR)
             dispatch(QueueType::Graphics, {}, { semaphore }, { PipelineStageFlags::BottomOfPipe });
@@ -68,7 +70,7 @@ bool GPU::CommandDispatcher::tryAcquireNextFrame(void) noexcept
             res = ::vkAcquireNextImageKHR(
                 parent().logicalDevice(),
                 parent().swapchain(),
-                0, // Do not wait
+                WaitDuration, // Timeout
                 semaphore,
                 NullHandle, // No fence
                 &retreivedFrame
@@ -80,8 +82,9 @@ bool GPU::CommandDispatcher::tryAcquireNextFrame(void) noexcept
     if (res != VK_SUCCESS) {
         // Recycle the semaphore for later use
         _availableSemaphores.push(std::move(semaphore));
-        // Wait queue idle
-        parent().queueManager().waitQueueIdle(QueueType::Graphics);
+        // // Wait queue idle
+        // parent().queueManager().waitQueueIdle(QueueType::Graphics);
+        kFInfo("[Command Dispatcher] Not ready ", res, " -> ", retreivedFrame);
         return false;
     }
 

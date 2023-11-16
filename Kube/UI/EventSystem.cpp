@@ -42,7 +42,6 @@ void UI::EventSystem::collectEvents(void) noexcept
 {
     SDL_Event events[16];
 
-    // ::SDL_PumpEvents();
     while (true) {
         const auto count = ::SDL_PeepEvents(
             events,

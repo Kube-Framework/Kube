@@ -86,8 +86,7 @@ public:
         const WindowFlags windowFlags = WindowFlags::None,
         const Core::Version version = Core::Version(0, 1, 0),
         const std::size_t workerCount = Flow::Scheduler::AutoWorkerCount,
-        const std::size_t taskQueueSize = Flow::Scheduler::DefaultTaskQueueSize,
-        const std::size_t eventQueueSize = ECS::Executor::DefaultExecutorEventQueueSize
+        const std::size_t taskQueueSize = Flow::Scheduler::DefaultTaskQueueSize
     ) noexcept;
 
     /** @brief App is not copiable */

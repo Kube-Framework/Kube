@@ -18,16 +18,15 @@ ECS::Executor *ECS::Executor::_Instance {};
 
 ECS::Executor::~Executor(void) noexcept
 {
-    kFEnsure(!_cache.running,
+    kFEnsure(!_running,
         "Executor::~Executor: Executor destroyed while still running");
     kFEnsure(_Instance,
         "ECS::Executor: Executor already destroyed");
     _Instance = nullptr;
 }
 
-ECS::Executor::Executor(const std::size_t workerCount, const std::size_t taskQueueSize, const std::size_t eventQueueSize) noexcept
+ECS::Executor::Executor(const std::size_t workerCount, const std::size_t taskQueueSize) noexcept
     : _scheduler(workerCount, taskQueueSize)
-    , _eventQueue(eventQueueSize, false)
 {
     kFEnsure(!_Instance,
         "ECS::Executor: Executor can only be instantiated once");
@@ -38,7 +37,7 @@ Core::Expected<ECS::PipelineIndex> ECS::Executor::getPipelineIndex(const Core::H
 {
     Core::Expected<PipelineIndex> res;
 
-    for (PipelineIndex index = 0u; const auto hash : _pipelines.hashes) {
+    for (PipelineIndex index = 0u; const auto hash : _pipelineHashes) {
         if (hash != pipelineHash) [[likely]] {
             ++index;
             continue;
@@ -55,7 +54,7 @@ Core::Expected<ECS::PipelineIndex> ECS::Executor::getSystemIndex(const PipelineI
     Core::Expected<PipelineIndex> res;
 
     // Find system inside pipeline
-    auto &names = _pipelines.systemHashes.at(pipelineIndex);
+    auto &names = _pipelines.at(pipelineIndex)->systemHashes;
     for (PipelineIndex index = 0; const auto name : names) {
         if (name != systemHash) [[likely]] {
             ++index;
@@ -68,176 +67,160 @@ Core::Expected<ECS::PipelineIndex> ECS::Executor::getSystemIndex(const PipelineI
     return res;
 }
 
-void ECS::Executor::setPipelineTickRate(const PipelineIndex pipelineIndex, const std::int64_t frequencyHz) noexcept
+void ECS::Executor::run(const Core::HashedName mainThreadPipelineHash, Core::TrivialFunctor<void(void)> &&mainThreadInlineTick) noexcept
 {
-    kFEnsure(frequencyHz >= 0, "ECS::Executor::addPipeline: Pipeline only support frequency in range [0, inf[");
-    ExecutorEvent event([this, pipelineIndex, frequencyHz = std::int32_t(frequencyHz)] {
-        _pipelines.clocks.at(pipelineIndex).setTickRate(HzToRate(std::int64_t(frequencyHz)));
-        return true;
-    });
-    while (!_eventQueue.push<true>(event))
-        std::this_thread::yield();
-}
+    kFEnsure(!_pipelines.empty(), "ECS::Executor::run: No pipeline registered");
 
-void ECS::Executor::stop(void) noexcept
-{
-    ExecutorEvent event([this] {
-        // Wait all pipelines to stop
-        waitIdle();
-        // Exhaust pipeline events before closing
-        for (auto &queue : _pipelines.events) {
-            PipelineEvent event;
-            while (queue->pop(event))
-                event();
-        }
-        return false;
-    });
-    while (!_eventQueue.push<true>(event))
-        std::this_thread::yield();
-}
-
-void ECS::Executor::run(void) noexcept
-{
     // Setup
-    _cache.running = true;
-    _cache.lastTick = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    buildPipelineGraphs();
+    _running = true;
 
-    // Run until executor receive stop event
-    while (tick());
+    for (PipelineIndex index {}, count = _pipelineHashes.size(); index != count; ++index)
+        buildPipelineGraph(*_pipelines[index]);
 
-    // Stop
-    _cache.running = false;
-}
+    // Find main pipeline
+    const auto mainPipeline = [this, mainThreadPipelineHash] {
+        auto mainPipeline = _pipelineHashes.find(mainThreadPipelineHash);
+        if (mainPipeline == _pipelineHashes.end())
+            mainPipeline = _pipelineHashes.begin();
+        return _pipelines.begin() + Core::Distance<std::size_t>(_pipelineHashes.begin(), mainPipeline);
+    }();
 
-bool ECS::Executor::tick(void) noexcept
-{
-    // Observe pipelines
-    observePipelines();
-
-    // Process event & quit if necessary
-    if (!processEvents()) [[unlikely]]
-        return false;
-
-    // Wait next pipeline tick
-    waitPipelines();
-    return true;
-}
-
-bool ECS::Executor::processEvents(void) noexcept
-{
-    ExecutorEvent event;
-    while (_eventQueue.pop(event)) {
-        // If event returned false, stop executor
-        if (!event()) [[unlikely]]
-            return false;
+    // Run pipelines from 2nd to last in other threads
+    for (auto pipelineIt = _pipelines.begin(), pipelineEnd = _pipelines.end(); pipelineIt != pipelineEnd; ++pipelineIt) {
+        if (pipelineIt != mainPipeline)
+            (**pipelineIt).thread = std::thread([this, &pipeline = **pipelineIt] { runPipeline(pipeline); });
     }
-    return true;
+
+    // Run first pipeline in the main thread
+    runPipeline(**mainPipeline, std::move(mainThreadInlineTick));
 }
 
-void ECS::Executor::observePipelines(void) noexcept
+void ECS::Executor::runPipeline(Pipeline &pipeline, Core::TrivialFunctor<void(void)> &&inlineTick) noexcept
 {
-    const std::int64_t now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    const std::int64_t elapsed = now - _cache.lastTick;
-    std::int64_t next = INT64_MAX;
+    // Minimum time to sleep
+    constexpr std::int64_t MinimumSleepDuration = 1'000'000;
 
-    // kFInfo("[ECS Executor] Observe pipelines ", elapsed);
-    // Iterate over each pipeline clock
-    for (PipelineIndex pipelineIndex = 0; auto &clock : _pipelines.clocks) {
-        const auto tickRate = clock.tickRate(); // @todo fix this datarace when clock frequency changes at runtime (mutex / atomic)
-        const bool isTimeBound = clock.isTimeBound();
-        clock.elapsed += elapsed;
-        // If the pipeline has to be executed
-        if (clock.elapsed >= tickRate) [[unlikely]] {
-            // If the graph is not being executed, schedule it
-            if (auto &graph = *_pipelines.graphs.at(pipelineIndex); !graph.running()) [[likely]] {
-                // kFInfo("[ECS Executor] | Tick '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
-                if (isTimeBound)
-                    clock.elapsed -= tickRate;
-                else
-                    clock.elapsed = 0;
-                if (const auto &inlineBeginPass = _pipelines.inlineBeginPasses.at(pipelineIndex); !inlineBeginPass || inlineBeginPass()) [[likely]]
-                    _scheduler.schedule(graph);
-                next = std::min(next, now + tickRate);
-            // Else we must schedule the graph as soon as it finishes execution
-            } else {
-                // kFInfo("[ECS Executor] | Busy '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
-                next = now;
-            }
-        // The pipeline have time before schedule
+    // Build the system graph of the pipeline
+    buildPipelineGraph(pipeline);
+
+    // While executor is running, continue to run the pipeline at its frequency
+    auto now = std::chrono::high_resolution_clock::now();
+    auto nextTick = now;
+    while (_running.load(std::memory_order_relaxed)) {
+        now = std::chrono::high_resolution_clock::now();
+        const auto remaining = std::chrono::duration_cast<std::chrono::nanoseconds>(nextTick - now).count();
+        if (remaining > MinimumSleepDuration) {
+            // kFInfo(pipeline.name, "\tSleeping: ", remaining);
+            Flow::PreciseSleep(remaining - MinimumSleepDuration);
+        // Tick now
         } else {
-            // kFInfo("[ECS Executor] | Wait '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
-            next = std::min(next, now + tickRate - clock.elapsed);
+            if (pipeline.graph.running()) {
+                kFInfo(pipeline.name, "\tWaiting");
+                pipeline.graph.wait();
+            }
+            if (inlineTick)
+                inlineTick();
+            // kFInfo(pipeline.name, "\tSchedule");
+            _scheduler.schedule(pipeline.graph);
+            const auto x = std::chrono::duration_cast<std::chrono::nanoseconds>(nextTick - std::chrono::high_resolution_clock::now()).count();
+            if (x < 0)
+                kFInfo(pipeline.name, " late by ", x, "ns");
+            nextTick = now + std::chrono::nanoseconds(pipeline.tickRate);
         }
-        ++pipelineIndex;
-    }
-    _cache.lastTick = now;
-    _cache.nextTick = next;
-}
-
-void ECS::Executor::waitPipelines(void) noexcept
-{
-    while (true) {
-        const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-        const std::int64_t nanoseconds = _cache.nextTick - now;
-        // Don't sleep, we are late
-        if (nanoseconds <= 0)
-            break;
-        // Sleep for the whole duration if we have enough time to sleep
-        else if (nanoseconds > 500'000) {
-            Flow::PreciseSleep(nanoseconds);
-            // const auto end = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-            // const auto observed = end - now;
-            // if (end > _cache.nextTick + 100'000)
-            //     kFInfo("[ECS Executor] Oversleep ", observed / 1e6, " / ", nanoseconds / 1e6, "ms ", (double(observed) / double(nanoseconds)) * 100.0, "%");
-        // Spin wait
-        } else
-            std::this_thread::yield();
     }
 }
 
-void ECS::Executor::buildPipelineGraphs(void) noexcept
-{
-    for (PipelineIndex index {}, count = _pipelines.hashes.size(); index != count; ++index) {
-        buildPipelineGraph(index);
-    }
-}
+// void ECS::Executor::observePipelines(void) noexcept
+// {
+//     const std::int64_t now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+//     const std::int64_t elapsed = now - _cache.lastTick;
+//     std::int64_t next = INT64_MAX;
 
-void ECS::Executor::buildPipelineGraph(const PipelineIndex pipelineIndex) noexcept
-{
-    // Retreive pipeline system list & graph
-    auto &systems = _pipelines.systems.at(pipelineIndex);
-    auto &graph = *_pipelines.graphs.at(pipelineIndex);
+//     // kFInfo("[ECS Executor] Observe pipelines ", elapsed);
+//     // Iterate over each pipeline clock
+//     for (PipelineIndex pipelineIndex = 0; auto &clock : _pipelines.clocks) {
+//         const auto tickRate = clock.tickRate(); // @todo fix this datarace when clock frequency changes at runtime (mutex / atomic)
+//         const bool isTimeBound = clock.isTimeBound();
+//         clock.elapsed += elapsed;
+//         // If the pipeline has to be executed
+//         if (clock.elapsed >= tickRate) [[unlikely]] {
+//             // If the graph is not being executed, schedule it
+//             if (auto &graph = *_pipelines.graphs.at(pipelineIndex); !graph.running()) [[likely]] {
+//                 // kFInfo("[ECS Executor] | Tick '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
+//                 if (isTimeBound)
+//                     clock.elapsed -= tickRate;
+//                 else
+//                     clock.elapsed = 0;
+//                 if (const auto &inlineBeginPass = _pipelines.inlineBeginPasses.at(pipelineIndex); !inlineBeginPass || inlineBeginPass()) [[likely]]
+//                     _scheduler.schedule(graph);
+//                 next = std::min(next, now + tickRate);
+//             // Else we must schedule the graph as soon as it finishes execution
+//             } else {
+//                 // kFInfo("[ECS Executor] | Busy '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
+//                 next = now;
+//             }
+//         // The pipeline have time before schedule
+//         } else {
+//             // kFInfo("[ECS Executor] | Wait '", _pipelines.names.at(pipelineIndex), "': ", clock.elapsed / static_cast<double>(tickRate), " (", clock.elapsed, " / ", tickRate, ")");
+//             next = std::min(next, now + tickRate - clock.elapsed);
+//         }
+//         ++pipelineIndex;
+//     }
+//     _cache.lastTick = now;
+//     _cache.nextTick = next;
+// }
 
+// void ECS::Executor::waitPipelines(void) noexcept
+// {
+//     while (true) {
+//         const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+//         const std::int64_t nanoseconds = _cache.nextTick - now;
+//         // Don't sleep, we are late
+//         if (nanoseconds <= 0)
+//             break;
+//         // Sleep for the whole duration if we have enough time to sleep
+//         else if (nanoseconds > 500'000) {
+//             Flow::PreciseSleep(nanoseconds);
+//             // const auto end = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+//             // const auto observed = end - now;
+//             // if (end > _cache.nextTick + 100'000)
+//             //     kFInfo("[ECS Executor] Oversleep ", observed / 1e6, " / ", nanoseconds / 1e6, "ms ", (double(observed) / double(nanoseconds)) * 100.0, "%");
+//         // Spin wait
+//         } else
+//             std::this_thread::yield();
+//     }
+// }
+
+void ECS::Executor::buildPipelineGraph(Pipeline &pipeline) noexcept
+{
     // Clear old graph
-    graph.clear();
+    pipeline.graph.clear();
 
     // The first taks of the pipeline executes events and tells if the pipeline can execute
-    auto &beginTask = graph.add([this, pipelineIndex] {
+    auto &beginTask = pipeline.graph.add([&pipeline] {
         // Process all pipeline events
-        auto &queue = *_pipelines.events.at(pipelineIndex);
         PipelineEvent event;
-        while (queue.pop(event))
+        while (pipeline.events->pop(event))
             event();
 
         // If we have a begin pass function, call it to know if the pipeline must execute
-        if (auto &beginPass = _pipelines.beginPasses.at(pipelineIndex); !beginPass)
-            return false;
+        if (pipeline.beginPass)
+            return pipeline.beginPass();
         else
-            return !beginPass();
+            return false;
     });
 
     // If pipeline does not contain any system, don't build further
-    if (systems.empty()) [[unlikely]]
+    if (pipeline.systems.empty()) [[unlikely]]
         return;
 
     Flow::Task *prevTickTask = &beginTask;
     Flow::Task *prevGraphTask = nullptr;
 
     // For each system, record tick & graph tasks then link them to begin / end
-    for (auto &system : systems) {
-        auto &tickTask = graph.add([system = system.get()](void) -> bool { return !system->tick(); });
-        auto &graphTask = graph.add(&system->taskGraph());
+    for (auto &system : pipeline.systems) {
+        auto &tickTask = pipeline.graph.add([system = system.get()](void) -> bool { return !system->tick(); });
+        auto &graphTask = pipeline.graph.add(&system->taskGraph());
 
         // Connect tick to previous tasks
         tickTask.after(*prevTickTask);
@@ -250,10 +233,4 @@ void ECS::Executor::buildPipelineGraph(const PipelineIndex pipelineIndex) noexce
         prevTickTask = &tickTask;
         prevGraphTask = &graphTask;
     }
-}
-
-void ECS::Executor::waitIdle(void) noexcept
-{
-    for (auto &graph : _pipelines.graphs)
-        graph->waitSpin();
 }

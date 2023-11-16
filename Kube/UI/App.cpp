@@ -193,12 +193,11 @@ UI::App::App(
     const WindowFlags windowFlags,
     const Core::Version version,
     const std::size_t workerCount,
-    const std::size_t taskQueueSize,
-    const std::size_t eventQueueSize
+    const std::size_t taskQueueSize
 ) noexcept
     : _backendInstance(windowTitle, windowPos, windowSize, minimumWindowSize, windowFlags)
     , _gpu(_backendInstance.window, MakeFrameImageModels(), { &MakeRenderPass }, version)
-    , _executor(workerCount, taskQueueSize, eventQueueSize)
+    , _executor(workerCount, taskQueueSize)
 {
     kFEnsure(!_Instance,
         "UI::App: App already initialized");
@@ -210,13 +209,7 @@ UI::App::App(
     });
 
     // Event pipeline
-    _executor.addPipelineInline<EventPipeline>(
-        DefaultEventRate,
-        [](void) -> bool {
-            ::SDL_PumpEvents();
-            return true;
-        }
-    ); // @todo make pipeline without events with assert !
+    _executor.addPipeline<EventPipeline>(DefaultEventRate);
     _executor.addSystem<EventSystem>(_backendInstance.window);
 
     // Present pipeline
@@ -242,7 +235,7 @@ void UI::App::setWindowSize(const Size size) noexcept
 void UI::App::run(void) noexcept
 {
     onAboutToRun();
-    _executor.run();
+    _executor.run(EventPipeline::Hash, [] { ::SDL_PumpEvents(); });
 }
 
 void UI::App::stop(void) noexcept

@@ -9,28 +9,23 @@
 
 #include "Executor.hpp"
 
-template<kF::ECS::Pipeline PipelineType, kF::ECS::PipelineTimeMode TimeMode, typename BeginPass, typename InlineBeginPass>
-inline void kF::ECS::Executor::addPipeline(const std::int64_t frequencyHz, const std::size_t eventQueueSize,
-        BeginPass &&beginPass, InlineBeginPass &&inlineBeginPass) noexcept
+template<kF::ECS::Pipeline PipelineType, kF::ECS::PipelineTimeMode TimeMode, typename BeginPass>
+inline void kF::ECS::Executor::addPipeline(
+    const std::int64_t frequencyHz,
+    BeginPass &&beginPass,
+    const std::size_t eventQueueSize
+) noexcept
 {
     kFEnsure(frequencyHz >= 0, "ECS::Executor::addPipeline: Pipeline only support frequency in range [0, inf[");
 
-    _pipelines.hashes.push(PipelineType::Hash);
-    _pipelines.systemHashes.push();
-    _pipelines.systems.push();
-    _pipelines.events.push(eventQueueSize ? PipelineEvents::Make(eventQueueSize) : PipelineEvents());
-    _pipelines.clocks.push(PipelineClock {
-        .maskedTickRate = [tickRate = HzToRate(frequencyHz)] {
-            if constexpr (TimeMode == PipelineTimeMode::Bound)
-                return tickRate | PipelineClock::TimeBoundMask;
-            else
-                return tickRate;
-        }(),
-    });
-    _pipelines.graphs.push(PipelineGraph::Make());
-    _pipelines.inlineBeginPasses.push(std::forward<InlineBeginPass>(inlineBeginPass));
-    _pipelines.beginPasses.push(std::forward<BeginPass>(beginPass));
-    _pipelines.names.push(PipelineType::Name);
+    _pipelineHashes.push(PipelineType::Hash);
+    auto &pipeline = _pipelines.push(PipelinePtr::Make());
+    pipeline->hash = PipelineType::Hash;
+    pipeline->isTimeBound = TimeMode == PipelineTimeMode::Bound;
+    pipeline->tickRate = HzToRate(frequencyHz);
+    pipeline->beginPass = std::forward<BeginPass>(beginPass);
+    pipeline->events = PipelineEvents::Make(eventQueueSize ? eventQueueSize : DefaultPipelineEventQueueSize);
+    pipeline->name = PipelineType::Name;
 }
 
 template<typename SystemType, auto ...Dependencies, typename ...Args>
@@ -46,20 +41,21 @@ inline SystemType &kF::ECS::Executor::addSystem(Args &&...args) noexcept
         SystemType::ExecutorPipeline::Name, "' not found");
 
     // Determine system insert position
-    auto &systems = _pipelines.systems.at(*expected);
-    auto &systemNames = _pipelines.systemHashes.at(*expected);
-    auto insertAt = systemNames.end();
+    auto &pipeline = _pipelines.at(*expected);
+    auto &systems = pipeline->systems;
+    auto &systemHashes = pipeline->systemHashes;
+    auto insertAt = systemHashes.end();
     // Scan dependencies
     if constexpr (sizeof...(Dependencies) != 0) {
         kFEnsure(insertAt != nullptr,
             "ECS::Executor::addSystem: System '", SystemType::Name, "' is added before its dependencies");
-        auto orderFunc = [&systemNames]<typename DependencyHolder>(auto &insertAt, DependencyHolder) {
+        auto orderFunc = [&systemHashes]<typename DependencyHolder>(auto &insertAt, DependencyHolder) {
             // Deduce dependency type
             using Dependency = DependencyHolder::Type;
 
             // Find dependency at runtime
-            const auto dependencyIt = systemNames.find(Dependency::Hash);
-            kFEnsure(dependencyIt != systemNames.end(),
+            const auto dependencyIt = systemHashes.find(Dependency::Hash);
+            kFEnsure(dependencyIt != systemHashes.end(),
                 "ECS::Executor::addSystem: Dependency '", Dependency::Name, "' of system '", SystemType::Name, "' not found");
             // Ensure iterator met dependency requirement
             if constexpr (DependencyHolder::After) {
@@ -84,8 +80,8 @@ inline SystemType &kF::ECS::Executor::addSystem(Args &&...args) noexcept
     }
 
     // Insert system & system name
-    const auto insertIndex = std::distance(systemNames.begin(), insertAt);
-    systemNames.insert(
+    const auto insertIndex = std::distance(systemHashes.begin(), insertAt);
+    systemHashes.insert(
         insertAt,
         SystemType::Hash
     );
@@ -113,7 +109,7 @@ inline SystemType &kF::ECS::Executor::getSystem(const std::uint32_t pipelineInde
     const auto systemIndex = getSystemIndex(pipelineIndex, SystemType::Hash);
     kFEnsure(systemIndex.success(),
         "ECS::Executor::getSystem: Couldn't find system '", SystemType::Name, "' inside pipeline '", SystemType::ExecutorPipeline::Name, '\'');
-    return *reinterpret_cast<SystemType *>(_pipelines.systems.at(pipelineIndex).at(systemIndex.value()).get());
+    return *reinterpret_cast<SystemType *>(_pipelines.at(pipelineIndex)->systems.at(systemIndex.value()).get());
 }
 
 template<typename DestinationPipeline, bool RetryOnFailure, typename Callback>
@@ -154,9 +150,10 @@ inline void kF::ECS::Executor::sendEvent(const std::uint32_t pipelineIndex, Call
         pipelineEvent = std::forward<Callback>(callback);
 
     // When RetryOnFailure is set to true, loop until event is pushed
+    auto &events = _pipelines.at(pipelineIndex)->events;
     bool res = false;
     while (true) {
-        res = _pipelines.events.at(pipelineIndex)->push<true>(pipelineEvent);
+            res = events->push<true>(pipelineEvent);
         if constexpr (RetryOnFailure) {
             if (!res) {
                 std::this_thread::yield();
