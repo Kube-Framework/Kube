@@ -13,17 +13,16 @@ using namespace kF;
 
 Flow::Graph::~Graph(void) noexcept
 {
-    waitSleep();
+    wait();
 }
 
 const Flow::TaskRefList &Flow::Graph::prepareToSchedule(void) noexcept
 {
-    { // Ensure that the graph is not running
-        const auto count = _activeTaskCount.load(std::memory_order_acquire);
-        kFEnsure(count == 0,
-            "Flow::Graph::prepareToSchedule: Graph is already running with ", count, " active tasks");
-    }
+    // Ensure that the graph is not already running
+    kFEnsure(!_running.load(std::memory_order_acquire), "Flow::Graph::prepareToSchedule: Graph is already running");
 
+    // Set graph running state & active task count
+    _running.store(true, std::memory_order_release);
     _activeTaskCount.store(_tasks.size(), std::memory_order_relaxed);
     if (!_preparedTasks.empty()) [[likely]] {
         for (auto &task : _tasks)
@@ -37,7 +36,6 @@ const Flow::TaskRefList &Flow::Graph::prepareToSchedule(void) noexcept
                 _preparedTasks.push(task.get());
         }
     }
-    _beginExecutionTimestamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     return _preparedTasks;
 }
 
@@ -45,8 +43,8 @@ void Flow::Graph::joinTasks(const std::size_t taskCount) noexcept
 {
     // The last worker is ending graph execution
     if (_activeTaskCount.fetch_sub(taskCount, std::memory_order_acq_rel) == taskCount) [[unlikely]] {
-        _lastExecutionTime = std::chrono::high_resolution_clock::now().time_since_epoch().count() - _beginExecutionTimestamp;
-        _medianExecutionTime = (_medianExecutionTime + _lastExecutionTime) / 2;
+        _running.store(false, std::memory_order_release);
+        _running.notify_all();
     }
 }
 
@@ -70,15 +68,7 @@ void Flow::Graph::invalidateScheduleCacheImpl(void) noexcept
     _preparedTasks.clear();
 }
 
-void Flow::Graph::waitSleep(const std::int64_t sleepNs) noexcept
+void Flow::Graph::wait(void) noexcept
 {
-    while (_activeTaskCount.load(std::memory_order_acquire))
-        Flow::PreciseSleep(sleepNs);
-}
-
-void Flow::Graph::waitSpin(void) noexcept
-{
-    while (_activeTaskCount.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
-    }
+    _running.wait(true);
 }

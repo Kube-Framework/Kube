@@ -19,10 +19,6 @@ namespace kF::Flow
 class alignas_cacheline kF::Flow::Graph
 {
 public:
-    /** @brief The default wait sleep duration in nanoseconds */
-    static constexpr std::size_t DefaultWaitSleepTime = 10'000'000;
-
-
     /** @brief Destructor */
     ~Graph(void) noexcept;
 
@@ -31,7 +27,7 @@ public:
 
 
     /** @brief Check if graph is running */
-    [[nodiscard]] inline bool running(void) const noexcept { return _activeTaskCount.load(std::memory_order_acquire); }
+    [[nodiscard]] inline bool running(void) const noexcept { return _running.load(std::memory_order_acquire); }
 
 
     /** @brief Add task into graph with a work functor */
@@ -61,27 +57,8 @@ public:
     [[nodiscard]] inline std::uint32_t count(void) const noexcept { return _tasks.size(); }
 
 
-    /** @brief Get last execution time in nanoseconds */
-    [[nodiscard]] inline std::int64_t lastExecutionTime(void) const noexcept { return _lastExecutionTime; }
-
-    /** @brief Get median execution time in nanoseconds */
-    [[nodiscard]] inline std::int64_t medianExecutionTime(void) const noexcept { return _medianExecutionTime; }
-
-
-    /** @brief Wait until graph execution is over
-     *  Implementation uses a sleep loop, great for energy efficiency
-     *  @param sleepNs The amount of nanoseconds per sleep */
-    void waitSleep(const std::int64_t sleepNs = DefaultWaitSleepTime) noexcept;
-
-    /** @brief Wait until a specific time point is reached
-     *  @param timestamp The wake-up timestamp in nanoseconds */
-    void waitUntil(const std::int64_t timestamp) noexcept;
-
-
-    /** @brief Wait until graph execution is over
-     *  Implementation uses a spin loop, great for critical section wait
-     *  Please note that waitSleep is much more energy-efficient */
-    void waitSpin(void) noexcept;
+    /** @brief Wait until graph execution is over */
+    void wait(void) noexcept;
 
 
 public: // Unsafe public functions reserved for workers
@@ -98,20 +75,18 @@ public: // Unsafe public functions reserved for workers
 
 
 private:
-    // Cacheline 0
-    TaskList _tasks {}; // Children task instances
-    TaskRefList _preparedTasks {}; // Tasks prepared to run
-    std::atomic_size_t _activeTaskCount { 0 }; // Number of active tasks
-    std::int64_t _beginExecutionTimestamp {}; // Timestamp of execution begin
-    std::int64_t _lastExecutionTime {}; // Last execution time
-    std::int64_t _medianExecutionTime {}; // Median execution time
-
-
     /** @brief Invalidate schedule cache so it must be re-prepared */
     inline void invalidateScheduleCache(void) noexcept { if (!_preparedTasks.empty()) [[unlikely]] invalidateScheduleCacheImpl(); }
 
     /** @brief This function extends invalidateScheduleCache in order to reduce inline footprint on the likely path */
     void invalidateScheduleCacheImpl(void) noexcept;
+
+
+    // Cacheline 0
+    TaskList _tasks {}; // Children task instances
+    TaskRefList _preparedTasks {}; // Tasks prepared to run
+    std::atomic_size_t _activeTaskCount { 0 }; // Number of active tasks
+    std::atomic_bool _running {}; // Is graph running ?
 };
 
 static_assert_fit_cacheline(kF::Flow::Graph);

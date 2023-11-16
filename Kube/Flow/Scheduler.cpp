@@ -29,7 +29,7 @@ Flow::Scheduler::Scheduler(const std::size_t workerCount, const std::size_t task
     // Find worker count
     auto count = workerCount;
     if (count == AutoWorkerCount)
-        count = std::thread::hardware_concurrency();
+        count = std::thread::hardware_concurrency() - 1;
     if (!count)
         count = DefaultWorkerCount;
 
