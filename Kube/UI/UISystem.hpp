@@ -47,6 +47,7 @@ namespace kF::UI
 class alignas_double_cacheline kF::UI::UISystem
     : public ECS::System<"UISystem", PresentPipeline, UIAllocator,
         // Base (all items share these components)
+        ItemInstance,
         TreeNode,
         Area,
         Depth,
@@ -146,8 +147,16 @@ public:
     /** @brief Cache of cursor */
     struct alignas_half_cacheline CursorCache
     {
+        /** @brief Cursor change entry */
+        struct alignas_eighth_cacheline CursorChange
+        {
+            ECS::Entity entity {};
+            Cursor cursor {};
+        };
+        static_assert_fit_eighth_cacheline(CursorChange);
+
         Core::Vector<SDL_Cursor *, UIAllocator> cursors {};
-        Cursor cursor {};
+        Core::Vector<CursorChange, UIAllocator> cursorChangeStack {};
     };
     static_assert_fit_half_cacheline(CursorCache);
 
@@ -160,10 +169,10 @@ public:
 
 
     /** @brief Get window size */
-    [[nodiscard]] Size windowSize(void) const noexcept { return _cache.windowSize; }
+    [[nodiscard]] inline Size windowSize(void) const noexcept { return _cache.windowSize; }
 
     /** @brief Get window DPI */
-    [[nodiscard]] DPI windowDPI(void) const noexcept { return _cache.windowDPI; }
+    [[nodiscard]] inline DPI windowDPI(void) const noexcept { return _cache.windowDPI; }
 
 
     /** @brief Get FullScreen */
@@ -174,10 +183,17 @@ public:
 
 
     /** @brief Get current cursor */
-    [[nodiscard]] Cursor cursor(void) const noexcept { return _cursorCache.cursor; }
+    [[nodiscard]] inline Cursor cursor(void) const noexcept
+        { return _cursorCache.cursorChangeStack.empty() ? Cursor::Arrow : _cursorCache.cursorChangeStack.back().cursor; }
 
-    /** @brief Set current mouse cursor */
-    void setCursor(const Cursor cursor) noexcept;
+    /** @brief Push a mouse cursor linked to an entity in the stack */
+    void pushCursor(const ECS::Entity entity, const Cursor cursor) noexcept;
+
+    /** @brief Pop a mouse cursor from the stack linked to an entity */
+    void popCursor(const ECS::Entity entity) noexcept;
+
+    /** @brief Pop all mouse cursor from the stack */
+    void popAllCursors(const ECS::Entity entity) noexcept;
 
 
     /** @brief Get mouse position inside window */
@@ -191,7 +207,7 @@ public:
 
 
     /** @brief Get scene max depth */
-    [[nodiscard]] DepthUnit maxDepth(void) const noexcept { return _cache.maxDepth; }
+    [[nodiscard]] inline DepthUnit maxDepth(void) const noexcept { return _cache.maxDepth; }
 
 
     /** @brief Set clear color of UI renderer */
@@ -435,7 +451,7 @@ private:
     CursorCache _cursorCache {};
 };
 static_assert_alignof_double_cacheline(kF::UI::UISystem);
-static_assert_sizeof(kF::UI::UISystem, kF::Core::CacheLineDoubleSize * 17);
+static_assert_sizeof(kF::UI::UISystem, kF::Core::CacheLineDoubleSize * 18);
 
 #include "Item.ipp"
 #include "UISystem.ipp"

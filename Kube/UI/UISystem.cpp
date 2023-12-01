@@ -728,12 +728,47 @@ void UI::UISystem::setFullscreen(const bool fullscreen) noexcept
     });
 }
 
-void UI::UISystem::setCursor(const Cursor cursor) noexcept
+void UI::UISystem::pushCursor(const ECS::Entity entity, const Cursor cursor) noexcept
 {
-    if (_cursorCache.cursor == cursor)
+    // Store cursor in the stack
+    const auto oldCursor = this->cursor();
+    _cursorCache.cursorChangeStack.push(CursorCache::CursorChange { entity, cursor });
+    get<ItemInstance>(entity).instance->onCursorChanged();
+    // Change system cursor
+    if (oldCursor != cursor)
+        SDL_SetCursor(reinterpret_cast<SDL_Cursor *>(_cursorCache.cursors.at(Core::ToUnderlying(cursor))));
+}
+
+void UI::UISystem::popCursor(const ECS::Entity entity) noexcept
+{
+    // Find entity in the stack
+    const auto cursorIt = _cursorCache.cursorChangeStack.rfind([entity](const auto &elem) { return elem.entity == entity; });
+    if (cursorIt == _cursorCache.cursorChangeStack.rend())
         return;
-    _cursorCache.cursor = cursor;
-    SDL_SetCursor(reinterpret_cast<SDL_Cursor *>(_cursorCache.cursors.at(Core::ToUnderlying(cursor))));
+    // Erase linked cursor from the stack
+    const auto oldCursor = _cursorCache.cursorChangeStack.back().cursor;
+    _cursorCache.cursorChangeStack.erase(&*cursorIt);
+    // Change system cursor
+    const auto newCursor = cursor();
+    if (oldCursor != newCursor)
+        SDL_SetCursor(reinterpret_cast<SDL_Cursor *>(_cursorCache.cursors.at(Core::ToUnderlying(newCursor))));
+}
+
+void UI::UISystem::popAllCursors(const ECS::Entity entity) noexcept
+{
+    // Erase all linked cursors from the stack
+    const auto oldCursor = cursor();
+    const auto eraseIt = std::remove_if(
+        _cursorCache.cursorChangeStack.begin(),
+        _cursorCache.cursorChangeStack.end(),
+        [entity](const auto &elem) { return elem.entity == entity; }
+    );
+    if (eraseIt != _cursorCache.cursorChangeStack.end())
+        _cursorCache.cursorChangeStack.erase(eraseIt, _cursorCache.cursorChangeStack.end());
+    // Change system cursor
+    const auto newCursor = cursor();
+    if (oldCursor != newCursor)
+        SDL_SetCursor(reinterpret_cast<SDL_Cursor *>(_cursorCache.cursors.at(Core::ToUnderlying(newCursor))));
 }
 
 void UI::UISystem::setMousePosition(const UI::Point pos) noexcept

@@ -169,11 +169,18 @@ public:
 
     /** @brief Unsafe entity getter
      *  @note You must not use this entity index to attach or dettach any components ! */
-    [[nodiscard]] static inline ECS::Entity GetEntity(const Item &item) noexcept { return item._entity; }
+    [[nodiscard]] inline ECS::Entity entity(void) noexcept { return _entity; }
 
 protected:
+    // UISystem is a friend to prevent unsafe API access
+    friend UISystem;
+
     /** @brief Get an unsafe mutable list of children */
     [[nodiscard]] inline Children &childrenUnsafe(void) noexcept { return _children; }
+
+    /** @brief Callback on any cursor change, used to mark CursorChange tag */
+    inline void onCursorChanged(void) noexcept
+        { _componentFlags = Core::MakeFlags(_componentFlags, ComponentFlags::CursorChange); }
 
 
 private:

@@ -11,13 +11,10 @@
 
 #include "Base.hpp"
 
-struct SDL_Cursor;
-
 namespace kF::UI
 {
     class App;
     class UISystem;
-    enum class Cursor : std::uint32_t;
 }
 
 class kF::UI::App

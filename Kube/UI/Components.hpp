@@ -15,6 +15,7 @@
 
 namespace kF::UI
 {
+    class Item;
     class UISystem;
     class Painter;
     struct MouseEvent;
@@ -81,6 +82,14 @@ namespace kF::UI
         ComponentFlags componentFlags {};
     };
     static_assert_fit_half_cacheline(TreeNode);
+
+
+    /** @brief Item instance */
+    struct alignas_eighth_cacheline ItemInstance
+    {
+        Item *instance {};
+    };
+    static_assert_fit_eighth_cacheline(ItemInstance);
 
 
     /** @brief Transform describes a 2D space transformation */
@@ -445,24 +454,29 @@ namespace kF::UI
     enum class ComponentFlags : std::uint32_t
     {
         None                = 0b0,
-        TreeNode            = 0b000000000000001,
-        Area                = 0b000000000000010,
-        Depth               = 0b000000000000100,
-        Constraints         = 0b000000000001000,
-        Layout              = 0b000000000010000,
-        Transform           = 0b000000000100000,
-        PainterArea         = 0b000000001000000,
-        Clip                = 0b000000010000000,
-        MouseEventArea      = 0b000000100000000,
-        WheelEventArea      = 0b000010000000000,
-        DropEventArea       = 0b000100000000000,
-        KeyEventReceiver    = 0b001000000000000,
-        Timer               = 0b010000000000000,
-        Animator            = 0b100000000000000
+        // Components
+        ItemInstance        = 0b00000000'00000000'00000000'00000001,
+        TreeNode            = 0b00000000'00000000'00000000'00000010,
+        Area                = 0b00000000'00000000'00000000'00000100,
+        Depth               = 0b00000000'00000000'00000000'00001000,
+        Constraints         = 0b00000000'00000000'00000000'00010000,
+        Layout              = 0b00000000'00000000'00000000'00100000,
+        Transform           = 0b00000000'00000000'00000000'01000000,
+        PainterArea         = 0b00000000'00000000'00000000'10000000,
+        Clip                = 0b00000000'00000000'00000001'00000000,
+        MouseEventArea      = 0b00000000'00000000'00000010'00000000,
+        WheelEventArea      = 0b00000000'00000000'00000100'00000000,
+        DropEventArea       = 0b00000000'00000000'00001000'00000000,
+        KeyEventReceiver    = 0b00000000'00000000'00010000'00000000,
+        Timer               = 0b00000000'00000000'00100000'00000000,
+        Animator            = 0b00000000'00000000'01000000'00000000,
+        // Internal tags
+        CursorChange        = 0b00000001'00000000'00000000'00000000,
     };
 
     /** @brief Component types */
     using ComponentsTuple = std::tuple<
+        ItemInstance,
         TreeNode,
         Area,
         Depth,

@@ -24,9 +24,9 @@ bool UI::MouseFilter::onBeforeEvent(const MouseEvent &event, const ECS::Entity e
 {
     // Change cursor if required
     if (allowCursor & (event.type == MouseEvent::Type::Enter))
-        uiSystem.setCursor(Cursor::Hand);
+        uiSystem.pushCursor(entity, Cursor::Hand);
     else if (allowCursor & (event.type == MouseEvent::Type::Leave))
-        uiSystem.setCursor(Cursor::Arrow);
+        uiSystem.popCursor(entity);
 
     // Determine if the entity is locked
     return uiSystem.lockedEntity<MouseEventArea>() == entity;

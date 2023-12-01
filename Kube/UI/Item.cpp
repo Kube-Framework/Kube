@@ -14,10 +14,12 @@ using namespace kF;
 UI::Item::~Item(void) noexcept
 {
     // Dettach each component if it exists
-    constexpr auto DettachComponents = []<typename ...Components>(UISystem &uiSystem, const ECS::Entity entity, const ComponentFlags componentFlags,
-            std::type_identity<std::tuple<Components...>>) {
-        constexpr auto DettachComponent = []<typename Component>(UISystem &uiSystem, const ECS::Entity entity, const ComponentFlags componentFlags,
-            std::type_identity<Component>) {
+    constexpr auto DettachComponents = []<typename ...Components>(
+        UISystem &uiSystem, const ECS::Entity entity, const ComponentFlags componentFlags, std::type_identity<std::tuple<Components...>>
+    ) {
+        constexpr auto DettachComponent = []<typename Component>(
+            UISystem &uiSystem, const ECS::Entity entity, const ComponentFlags componentFlags, std::type_identity<Component>
+        ) {
             if (Core::HasFlags(componentFlags, GetComponentFlag<Component>())) {
                 uiSystem.dettach<Component>(entity);
             }
@@ -30,7 +32,12 @@ UI::Item::~Item(void) noexcept
     if (!_entity) [[unlikely]]
         return;
 
+    // Detect components to dettach
     DettachComponents(*_uiSystem, _entity, _componentFlags, std::type_identity<UISystem::ComponentsTuple> {});
+
+    // Remove all cursor linked to this entity if the cursor change flag is set
+    if (Core::HasFlags(_componentFlags, ComponentFlags::CursorChange))
+        _uiSystem->popAllCursors(_entity);
 
     // Remove the entity from UISystem
     _uiSystem->removeUnsafe(_entity);
@@ -38,8 +45,9 @@ UI::Item::~Item(void) noexcept
 
 UI::Item::Item(void) noexcept
     :   _uiSystem(&UI::App::Get().uiSystem()),
-        _componentFlags(Core::MakeFlags(ComponentFlags::TreeNode, ComponentFlags::Area, ComponentFlags::Depth)),
+        _componentFlags(Core::MakeFlags(ComponentFlags::ItemInstance, ComponentFlags::TreeNode, ComponentFlags::Area, ComponentFlags::Depth)),
         _entity(_uiSystem->add(
+            ItemInstance { .instance = this },
             TreeNode { .componentFlags = _componentFlags },
             Area {},
             Depth {}

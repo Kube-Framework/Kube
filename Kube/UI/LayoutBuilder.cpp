@@ -45,7 +45,7 @@ UI::DepthUnit UI::Internal::LayoutBuilder::build(void) noexcept
     );
 
     // Query root entity
-    const auto rootEntity = Item::GetEntity(_uiSystem.root());
+    const auto rootEntity = _uiSystem.root().entity();
     const auto rootEntityIndex = _traverseContext.entityIndexOf(nodeTable.get(rootEntity));
 
     {// Resolve simple constraints during first pass
