@@ -28,6 +28,7 @@ public:
         std::int64_t elapsed {};
         std::uint32_t startCount {};
         bool reverse {};
+        bool ended {};
     };
     static_assert_alignof_eighth_cacheline(AnimationState);
     static_assert_sizeof(AnimationState, Core::CacheLineEighthSize * 3);

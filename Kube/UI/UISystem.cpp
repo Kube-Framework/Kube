@@ -574,7 +574,6 @@ void UI::UISystem::processPainterAreas(void) noexcept
         handler.event(painter, area);
     }
 
-
     // Draw drag if any
     if (isDragging()) [[unlikely]] {
         // Reset clip

@@ -38,7 +38,7 @@ void UI::Animator::stop(const Animation &animation) noexcept
     auto &state = _states.at(index.value());
     if (animation.statusEvent)
         animation.statusEvent(AnimationStatus::Stop);
-    _states.erase(&state);
+    state.ended = true;
 }
 
 Core::Expected<std::uint32_t> UI::Animator::findIndex(const Animation &animation) const noexcept
@@ -53,8 +53,15 @@ Core::Expected<std::uint32_t> UI::Animator::findIndex(const Animation &animation
 
 void UI::Animator::onTick(const std::int64_t elapsed) noexcept
 {
-    const auto end = _states.end();
-    const auto it = std::remove_if(_states.begin(), end, [this, elapsed](auto &state) {
+    bool atLeastOneEnded {};
+    for (auto index = 0u, count = _states.size(); index != count; ++index) {
+        auto &state = _states[index];
+        // Skip already ended animations
+        if (state.ended) {
+            atLeastOneEnded = true;
+            continue;
+        }
+        // Process animation tick
         const auto &animation = *state.animation;
         const auto duration = std::max<std::int64_t>(animation.duration, 1);
         const auto totalElapsed = std::min(state.elapsed + elapsed, duration);
@@ -63,21 +70,31 @@ void UI::Animator::onTick(const std::int64_t elapsed) noexcept
             const auto reversedRatio = state.reverse ? 1.0f - ratio : ratio;
             animation.tickEvent(reversedRatio);
         }
+        // The animation is not completed yiet
         if (duration != totalElapsed) [[likely]] {
             state.elapsed = totalElapsed;
-            return false;
-        } else [[unlikely]] {
-            if (animation.animationMode == AnimationMode::Bounce)
-                state.reverse = !state.reverse;
-            const auto oldStartCount = state.startCount;
-            if (animation.statusEvent)
-                animation.statusEvent(AnimationStatus::Finish);
-            const bool manuallyRestarted = state.startCount != oldStartCount;
-            state.elapsed = {};
-            return animation.animationMode == AnimationMode::Single && !manuallyRestarted;
+            continue;
         }
-    });
+        // The animation is complete, we may have to bounce
+        if (animation.animationMode == AnimationMode::Bounce)
+            state.reverse = !state.reverse;
+        // Process status event but watch if the animation has been manually restarted
+        const auto oldStartCount = state.startCount;
+        if (animation.statusEvent)
+            animation.statusEvent(AnimationStatus::Finish);
+        const bool manuallyRestarted = state.startCount != oldStartCount;
+        state.elapsed = {};
+        // If the animation
+        if (animation.animationMode == AnimationMode::Single && !manuallyRestarted) {
+            state.ended = true;
+            atLeastOneEnded = true;
+        }
+    }
 
-    if (it != end) [[unlikely]]
-        _states.erase(it, end);
+    // If at some animation ended, we have to remove them
+    if (!atLeastOneEnded)
+        return;
+    const auto eraseIt = std::remove_if(_states.begin(), _states.end(), [this, elapsed](auto &state) { return state.ended; });
+    if (eraseIt != _states.end())
+        _states.erase(eraseIt, _states.end());
 }
