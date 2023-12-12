@@ -58,6 +58,8 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     # No exceptions !
     if(KF_NOEXCEPT)
         add_compile_options(/D_HAS_EXCEPTIONS=0)
+    else()
+        add_compile_options(/EHsc)
     endif()
     add_compile_definitions(
         NOMINMAX # MSVC min / max issue
