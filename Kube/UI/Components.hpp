@@ -131,7 +131,7 @@ namespace kF::UI
     struct alignas_cacheline Timer
     {
         /** @brief Timer event functor */
-        using Event = Core::Functor<bool(const std::uint64_t), UIAllocator>;
+        using Event = Core::Functor<bool(const std::int64_t), UIAllocator>;
 
         Event event {};
         std::int64_t interval {};
